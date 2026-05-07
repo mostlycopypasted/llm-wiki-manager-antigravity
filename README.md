@@ -18,7 +18,7 @@ git clone https://github.com/sametbrr/llm-wiki-manager ~/.claude/skills/llm-wiki
 
 Instead of RAG — where the LLM rediscovers answers from raw documents on every query — this pattern has the LLM **compile** raw sources into a persistent, interlinked markdown wiki. Each new source enriches existing pages. Cross-references are built eagerly. Contradictions are flagged. Knowledge compounds over time.
 
-Implements [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) as a full Claude Code skill with 7 operating modes, 4 idempotent Python scripts, 7 page templates, and 8 reference documents.
+Implements [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) as a full Claude Code skill with 8 operating modes (including multi-wiki routing), 4 idempotent Python scripts, 7 page templates, and 9 reference documents.
 
 ```
 Without this pattern          With this pattern
@@ -96,6 +96,7 @@ The skill auto-detects which mode applies from natural language. No slash comman
 | **Update** | "Smith 2024 supersedes Keys 1980, update the wiki" | Semantic sweep across all pages → diff-before-write per page → single log entry |
 | **Lint** | "Health check the wiki", "anything broken?" | Runs `lint_wiki.py` → auto-saves `wiki/reports/lint-YYYY-MM-DD.md` → auto-tracks in index and log |
 | **Schema-evolve** | "We should always do X going forward" | Updates `CLAUDE.md` so future sessions inherit the convention |
+| **Multi-wiki** | "Add this to my global wiki", "what does the global wiki say about X", "promote this page to global" | Routes between project wiki and global wiki using the `External Wiki:` declaration in project `CLAUDE.md` |
 | **Teach** | "How does this pattern work?", "explain the LLM wiki idea" | Explains the pattern, compares with RAG, walks through a concrete example |
 
 ---
@@ -137,8 +138,8 @@ The skill auto-detects which mode applies from natural language. No slash comman
 
 ### Reference docs
 
-Eight detailed workflow documents in `references/`:
-`philosophy.md` · `architecture.md` · `bootstrap-workflow.md` · `ingest-workflow.md` · `query-workflow.md` · `update-workflow.md` · `lint-workflow.md` · `schema-design-guide.md` · `teaching-mode.md`
+Nine detailed workflow documents in `references/`:
+`philosophy.md` · `architecture.md` · `bootstrap-workflow.md` · `ingest-workflow.md` · `query-workflow.md` · `update-workflow.md` · `lint-workflow.md` · `schema-design-guide.md` · `multi-wiki-routing.md` · `teaching-mode.md`
 
 The skill reads these selectively — you don't need to. They're there to give the LLM depth on each mode.
 
@@ -179,6 +180,63 @@ This is change **propagation**, not change tracking. The log and frontmatter tra
 Reports accumulate as a longitudinal health record. `git log wiki/reports/` shows how wiki quality evolved over time.
 
 Override flags: `--stdout` (terminal, no tracking), `--no-track` (write file, skip index/log), `--report PATH` (custom path).
+
+---
+
+## Multi-wiki — project wiki + global wiki
+
+Most users start with one wiki. Once you have **two** — say, a per-project wiki at the working directory plus a long-lived global "second brain" (often an existing Obsidian vault) — the skill routes writes between them based on a single declaration in the project's `CLAUDE.md`.
+
+```
+~/projects/x-project/          ← active project (current working directory)
+├── CLAUDE.md                  ← project schema — declares the global wiki path
+├── raw/                       ← project sources
+└── wiki/                      ← project wiki
+
+~/Documents/obsidian/          ← global wiki (long-lived, exists across projects)
+├── CLAUDE.md                  ← global schema
+├── raw/
+└── wiki/
+```
+
+### One-time setup
+
+Add this to the project's `CLAUDE.md` (or ask the agent to do it):
+
+```markdown
+## External Wiki
+
+Global knowledge base: ~/Documents/obsidian/
+
+### Routing rules
+- Project-specific code decisions, architecture, bugs, configuration → this project's `wiki/`
+- Concepts, frameworks, patterns, ideas applicable beyond this project → global wiki
+- When in doubt, ask before writing
+- Scripts always need `--path` flag pointing to the right wiki root
+
+### Cross-wiki links
+- Use absolute paths (`~/...`) when linking from one wiki to the other.
+- Never use relative paths that cross wiki boundaries.
+```
+
+The agent reads this on every session. No further configuration needed. The same `## External Wiki` block is present (commented out) in `assets/templates/wiki-CLAUDE.md.tmpl` — uncomment it on bootstrap if the project should reference a global wiki.
+
+### Four canonical scenarios
+
+| # | Scenario | Trigger | What the agent does |
+|---|---|---|---|
+| **A** | **Write to global** while in a project | "Add JWT refresh rotation to my global wiki" | Reads project `CLAUDE.md` → resolves global path → writes to global, project wiki untouched |
+| **B** | **Pull from global** into a project | "What does the global wiki say about rate limiting? Apply it to /api/search" | Reads global pages → synthesizes recommendation → writes a project-specific page that **links** to the global one (never copies) |
+| **C** | **Promote** a page from project to global | "concepts/event-sourcing.md has matured, promote it" | Moves content to global → leaves a one-line redirect stub at the project path → updates both indexes and logs |
+| **D** | **Lint both** wikis at once | "Lint both wikis" | Runs `lint_wiki.py --path` against each → reads both reports → returns one summary |
+
+The agent always uses `--path <wiki-root>` when targeting scripts, never relies on `cwd`. Cross-wiki links are absolute (`~/...`) so they survive moves and git history rewrites. Project pages link **out** to global pages — they never copy global content, because copies rot when the global page evolves.
+
+Full walkthroughs of all four scenarios — exact prompts, plans, scripts, resulting file structures — are in [`references/multi-wiki-routing.md`](references/multi-wiki-routing.md).
+
+### When *not* to use multi-wiki
+
+Don't split prematurely. A single project wiki with everything inside is not worse than a multi-wiki setup. Add a global wiki only when (1) you have 2+ active projects sharing concepts, (2) you keep re-explaining patterns across project wikis, or (3) you have a long-running personal knowledge base that predates the project.
 
 ---
 

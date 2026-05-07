@@ -33,6 +33,32 @@ Default layout. Adjust as the wiki grows.
 - **Frontmatter:** optional. If used, keep keys consistent (`tags`, `updated`, `sources`).
 - **Citation style:** in-line as `(see [Source Title](../sources/source-slug.md))`.
 
+<!-- ==========================================================================
+     OPTIONAL: External Wiki (multi-wiki setup)
+
+     Uncomment and edit the section below if this is a project wiki that should
+     reference a long-lived global wiki (e.g. an existing Obsidian vault).
+     The agent reads this on session start and uses it to route writes correctly.
+     See: references/multi-wiki-routing.md (4 canonical scenarios).
+     ========================================================================== -->
+
+<!--
+## External Wiki
+
+Global knowledge base: ~/Documents/obsidian/
+
+### Routing rules
+- Project-specific code decisions, architecture, bugs, configuration → this project's `wiki/`
+- Concepts, frameworks, patterns, ideas applicable beyond this project → global wiki
+- When in doubt, ask before writing
+- Scripts always need `--path` flag pointing to the right wiki root
+
+### Cross-wiki links
+- Use absolute paths (`~/...`) when linking from one wiki to the other.
+- Never use relative paths that cross wiki boundaries — they break under directory moves and git history rewrites.
+-->
+
+
 ## Page structure
 
 ### Source summary (`wiki/sources/<slug>.md`)

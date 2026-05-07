@@ -43,6 +43,7 @@ When this skill triggers, identify which mode applies and read the matching refe
 | **Update** | "X is no longer right", "Smith 2024 supersedes Keys 1980", a new source invalidates a claim across **3+ existing pages** (not just one), user explicitly correcting a factual error they spotted | `references/update-workflow.md` |
 | **Lint** | "health check", "audit the wiki", "find contradictions", "anything broken", periodic maintenance request | `references/lint-workflow.md` |
 | **Schema-evolve** | "update CLAUDE.md", "we should always do X going forward", convention drift noticed during another mode | `references/schema-design-guide.md` |
+| **Multi-wiki** | "add this to my global wiki", "what does the global wiki say about X", "promote this page to global", project's `CLAUDE.md` declares an `External Wiki:` line, user mentions Obsidian vault / second brain / two wikis | `references/multi-wiki-routing.md` |
 
 If multiple modes apply (e.g., user asks a question and wants the answer filed back), do them in sequence and log each one.
 
@@ -97,6 +98,18 @@ If a new source contradicts an existing claim on a wiki page, do **not** just re
 ### 7. The schema lives in `CLAUDE.md` and is updated when conventions change.
 
 If a working pattern emerges in conversation ("let's always tag book chapters with `chapter:N`"), write it into `CLAUDE.md` immediately so the next session inherits it. The user shouldn't have to re-explain conventions every session.
+
+### 8. If the project's `CLAUDE.md` declares an `External Wiki`, honor it.
+
+Some users run two wikis: a per-project wiki at the working directory and a long-lived global wiki (often an existing Obsidian vault) at a fixed path. The project's `CLAUDE.md` declares the global wiki's location with a section like:
+
+```markdown
+## External Wiki
+
+Global knowledge base: ~/Documents/obsidian/
+```
+
+When this section is present, **read both `CLAUDE.md` files at session start** (project + global) so you know each wiki's schema. Route writes per the user's rules: project-specific knowledge to the project wiki, portable concepts to the global wiki. Always pass `--path` to scripts targeting the chosen wiki — never assume the current working directory is the right target. **Cross-wiki links must be absolute** (`~/...`), never relative across wiki boundaries. See `references/multi-wiki-routing.md` for the four canonical scenarios (write-to-global, pull-from-global, promote, dual-lint).
 
 ## Standard wiki layout
 
