@@ -4,7 +4,7 @@ description: Build, maintain, and query a personal LLM-managed wiki — a markdo
 license: MIT
 metadata:
   author: sametbrr
-  version: "1.0"
+  version: "1.1"
   tags:
     - wiki
     - knowledge-management
@@ -41,13 +41,15 @@ When this skill triggers, identify which mode applies and read the matching refe
 | **Ingest** | new source dropped (file in `raw/`, pasted URL, attached PDF), "add this to the wiki", "file this", "I just read X" | `references/ingest-workflow.md` |
 | **Query** | question against existing wiki content, "what do we know about X", "compare X and Y from my notes", "based on what I've collected…" | `references/query-workflow.md` |
 | **Update** | "X is no longer right", "Smith 2024 supersedes Keys 1980", a new source invalidates a claim across **3+ existing pages** (not just one), user explicitly correcting a factual error they spotted | `references/update-workflow.md` |
+| **Multi-wiki** | "add this to my global wiki", "file to obsidian", "what does the global wiki say about X", "check my notes on Y", "promote this page to global", "lint both wikis", any operation that explicitly targets a second wiki location, or project's `CLAUDE.md` declares an `## External Wiki` section | `references/multi-wiki-routing.md` |
 | **Lint** | "health check", "audit the wiki", "find contradictions", "anything broken", periodic maintenance request | `references/lint-workflow.md` |
 | **Schema-evolve** | "update CLAUDE.md", "we should always do X going forward", convention drift noticed during another mode | `references/schema-design-guide.md` |
-| **Multi-wiki** | "add this to my global wiki", "what does the global wiki say about X", "promote this page to global", project's `CLAUDE.md` declares an `External Wiki:` line, user mentions Obsidian vault / second brain / two wikis | `references/multi-wiki-routing.md` |
 
 If multiple modes apply (e.g., user asks a question and wants the answer filed back), do them in sequence and log each one.
 
 **Update vs. Ingest's Disputes handling — important distinction.** Ingest already handles contradictions on a single page by adding a Disputes section. Switch to **Update mode** only when the new source's claim affects **multiple existing pages** — that is, when the same idea is paraphrased across the wiki and a single Disputes section won't keep the wiki internally consistent. If only one page is affected, stay in ingest. See `references/update-workflow.md` for the precise trigger checklist.
+
+**Multi-wiki requires `CLAUDE.md` configuration.** Before any multi-wiki operation, read the project `CLAUDE.md` for an `## External Wiki` section that declares the global wiki path and routing rules. If the section is missing and a multi-wiki operation is requested, **run Schema-evolve first** to add it, then proceed. Never guess or assume the global wiki path. See `references/multi-wiki-routing.md` for the one-time setup block and the four canonical scenarios.
 
 ## Core invariants (apply in every mode)
 
@@ -148,6 +150,8 @@ Always prefer running these scripts to hand-editing `index.md` or `log.md`. They
 
 For **update mode**, no new script is needed — the workflow uses `append_log.py` (with `--action update`) and `update_index.py` orchestrated by the LLM following `references/update-workflow.md`. The diffs and multi-page sweep are LLM work, not script work, because they require semantic judgment.
 
+For **multi-wiki mode**, scripts are called with `--path <wiki-root>` to operate on the chosen wiki. The routing decision (which wiki receives the write) comes from the project `CLAUDE.md`'s `## External Wiki` section. Never rely on the current working directory — always pass `--path` explicitly. See `references/multi-wiki-routing.md`.
+
 ## Bundled templates
 
 In `assets/templates/`. Use them as starting points; adapt freely:
@@ -163,6 +167,6 @@ In `assets/templates/`. Use them as starting points; adapt freely:
 
 ## When in doubt
 
-Read `references/philosophy.md` for the why and `references/architecture.md` for the what. Both are short. The workflow files are the how.
+Read `references/philosophy.md` for the why and `references/architecture.md` for the what. Both are short. The workflow files are the how: `bootstrap-workflow.md`, `ingest-workflow.md`, `query-workflow.md`, `update-workflow.md`, `multi-wiki-routing.md`, `lint-workflow.md`, `schema-design-guide.md`, `teaching-mode.md`.
 
-The single most important principle: **the LLM does the bookkeeping.** Cross-references, index updates, log entries, contradiction-flagging, stale-claim review. That work is what makes the wiki compound. Skipping it because "the user didn't ask" is the failure mode this skill exists to prevent.
+The single most important principle: **the LLM does the bookkeeping.** Cross-references, index updates, log entries, contradiction-flagging, stale-claim review, multi-wiki routing. That work is what makes the wiki compound. Skipping it because "the user didn't ask" is the failure mode this skill exists to prevent.

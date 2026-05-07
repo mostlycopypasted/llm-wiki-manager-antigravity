@@ -33,29 +33,30 @@ Default layout. Adjust as the wiki grows.
 - **Frontmatter:** optional. If used, keep keys consistent (`tags`, `updated`, `sources`).
 - **Citation style:** in-line as `(see [Source Title](../sources/source-slug.md))`.
 
-<!-- ==========================================================================
-     OPTIONAL: External Wiki (multi-wiki setup)
+## External Wiki (optional)
 
-     Uncomment and edit the section below if this is a project wiki that should
-     reference a long-lived global wiki (e.g. an existing Obsidian vault).
-     The agent reads this on session start and uses it to route writes correctly.
-     See: references/multi-wiki-routing.md (4 canonical scenarios).
-     ========================================================================== -->
+<!-- Fill in if this project wiki connects to a long-lived global wiki (personal
+     knowledge base, Obsidian vault, second brain). Required for any multi-wiki
+     operation. The agent reads this section on session start and routes writes
+     accordingly. See references/multi-wiki-routing.md for the four canonical
+     scenarios (write-to-global, pull-from-global, promote, dual-lint).
 
-<!--
-## External Wiki
+Global knowledge base path: ~/Documents/obsidian/
+(Change to your actual path, or delete this whole section if you only use one wiki.)
 
-Global knowledge base: ~/Documents/obsidian/
+Routing rules:
+- Project-specific code decisions, architecture, bugs, API contracts → this wiki
+- General concepts, frameworks, patterns reusable across projects → global wiki
+- Source summaries for internal/project docs → this wiki
+- Source summaries for books, papers, general articles → global wiki
+- When the user says "global wiki", "obsidian", "my notes" → use global path
+- When routing is ambiguous → ask one clarifying question before writing
+- Scripts always need `--path` pointing to the right wiki root
 
-### Routing rules
-- Project-specific code decisions, architecture, bugs, configuration → this project's `wiki/`
-- Concepts, frameworks, patterns, ideas applicable beyond this project → global wiki
-- When in doubt, ask before writing
-- Scripts always need `--path` flag pointing to the right wiki root
-
-### Cross-wiki links
-- Use absolute paths (`~/...`) when linking from one wiki to the other.
-- Never use relative paths that cross wiki boundaries — they break under directory moves and git history rewrites.
+Cross-wiki link convention:
+- Use absolute paths: ~/Documents/obsidian/wiki/concepts/foo.md
+- Never use relative paths that cross wiki boundaries (they break under directory
+  moves and git history rewrites)
 -->
 
 
