@@ -2,6 +2,7 @@
 
 > A Claude Code skill for building and maintaining a personal LLM-managed wiki — a persistent, compounding knowledge base where the LLM does all the writing, cross-referencing, and bookkeeping while you curate sources and ask questions.
 
+[![Release](https://img.shields.io/github/v/release/sametbrr/llm-wiki-manager?display_name=tag&sort=semver)](https://github.com/sametbrr/llm-wiki-manager/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Agent Skills](https://img.shields.io/badge/agentskills.io-compatible-blue)](https://agentskills.io)
 [![Works with Claude Code](https://img.shields.io/badge/Claude%20Code-compatible-blueviolet)](https://claude.ai/code)
@@ -195,8 +196,9 @@ gh skill install sametbrr/llm-wiki-manager
 
 **Option 3 — .skill file**
 ```bash
-# Download the .skill file from Releases, then:
-unzip llm-wiki-manager.skill -d ~/.claude/skills/
+curl -L -o llm-wiki-manager.skill \
+  https://github.com/sametbrr/llm-wiki-manager/releases/latest/download/llm-wiki-manager.skill
+unzip llm-wiki-manager.skill -d ~/.claude/skills/llm-wiki-manager
 ```
 
 After installing, start a new Claude Code session. The skill loads automatically when relevant.
