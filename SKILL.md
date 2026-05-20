@@ -4,7 +4,7 @@ description: Build, maintain, and query a personal LLM-managed wiki — a markdo
 license: MIT
 metadata:
   author: sametbrr
-  version: "1.2"
+  version: "1.2.1"
   tags:
     - wiki
     - knowledge-management
