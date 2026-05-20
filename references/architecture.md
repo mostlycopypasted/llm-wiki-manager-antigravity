@@ -1,6 +1,6 @@
 # Architecture
 
-The structural model the skill uses everywhere. Three layers, four files, a small set of conventions. Read this when designing a new wiki, debugging "where should this go?" questions, or evolving the schema.
+The structural model the skill uses everywhere. Three layers, five files (index, log, hot + schema + README), a small set of conventions. Read this when designing a new wiki, debugging "where should this go?" questions, or evolving the schema.
 
 ## Three layers
 
@@ -36,10 +36,11 @@ What goes here (default categories, customizable per wiki):
 - **`wiki/notes/`** — anything that doesn't yet fit a category. Promoted to a "real" category once it has enough material to warrant it.
 - **`wiki/reports/`** — auto-generated dated reports from `lint_wiki.py` and (in the future) audit tooling. Filenames are slugs like `lint-2026-05-07.md`. The LLM does not author files here directly; scripts do. Same-day re-runs overwrite (idempotent daily). This folder is excluded from orphan/stub/index-drift checks during lint.
 
-Plus two structural files at `wiki/` root:
+Plus three structural files at `wiki/` root:
 
-- **`wiki/index.md`** — content catalog. Updated on every ingest.
-- **`wiki/log.md`** — chronological log. Appended on every ingest, query, and lint.
+- **`wiki/index.md`** — content catalog. Updated by `update_index.py` on every ingest.
+- **`wiki/log.md`** — chronological log. Appended by `append_log.py` on every ingest, query, and lint.
+- **`wiki/hot.md`** — ~500-word hot cache: vault state, latest ingests, open work items, tag inventory. **Rewritten entirely** after every ingest. First file a cross-project reader sees. Created from `assets/templates/hot.md.tmpl` by `init_wiki.py`.
 
 Conventions:
 
@@ -105,7 +106,7 @@ Fixed: linked notes/2026-04-shopping.md from concepts/western-diet.md. Added mis
 
 Maintained by `scripts/append_log.py`. The user can quickly see "what did I do last week" and the LLM can use the log to ground its sense of recent activity.
 
-`grep "^## \[" log.md | tail -20` is the canonical way to skim recent activity.
+`grep "^## \[" wiki/log.md | tail -20` is the canonical way to skim recent activity.
 
 ## How the layers interact during operations
 
@@ -118,6 +119,7 @@ Maintained by `scripts/append_log.py`. The user can quickly see "what did I do l
 5. LLM cross-links: source-summary links to entity pages, entity pages link to source-summary, related concepts link to each other.
 6. LLM updates `wiki/index.md` with new pages.
 7. LLM appends one entry to `wiki/log.md` summarizing what was touched.
+8. LLM **rewrites `wiki/hot.md`** entirely — updates vault state, moves new ingest to top of active knowledge, refreshes open work items and tag inventory.
 
 ### Query
 

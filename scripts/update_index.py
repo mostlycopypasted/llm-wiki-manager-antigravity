@@ -49,43 +49,43 @@ from pathlib import Path
 CANONICAL_ORDER = ["Sources", "Entities", "Concepts", "Notes", "Reports"]
 
 
-def find_index(root: Path) -> Path:
-    index = root / "wiki" / "index.md"
-    if not index.exists():
-        raise FileNotFoundError(
-            f"No index found at {index}. Run init_wiki.py first to scaffold the wiki."
-        )
-    return index
+def find_index(root: Path) -> tuple[Path, Path]:
+    """Returns (index_path, index_dir). Checks wiki/index.md first (standard), then root/index.md (flat)."""
+    for candidate in [root / "wiki" / "index.md", root / "index.md"]:
+        if candidate.exists():
+            return candidate, candidate.parent
+    raise FileNotFoundError(
+        f"No index.md found at {root / 'wiki' / 'index.md'} or {root / 'index.md'}. "
+        "Run init_wiki.py first to scaffold the wiki."
+    )
 
 
 def normalize_category(category: str) -> str:
-    """Title-case the category. 'concepts' -> 'Concepts'."""
-    return category.strip().capitalize()
+    """Title-case standard categories. Preserves special-prefix formats like '#tag' or '## tag · tag' as-is."""
+    cat = category.strip()
+    if cat.startswith("#") or cat.startswith("@"):
+        return cat
+    return cat.capitalize()
 
 
-def relative_link_target(page_path: Path, wiki_dir: Path) -> str:
+def relative_link_target(page_path: Path, root: Path, index_dir: Path) -> str:
     """
-    Compute the link target for an index entry.
+    Compute the link target for an index entry, relative to index_dir.
 
-    index.md lives in wiki/, so the link should be relative to wiki/.
-    A page at wiki/concepts/foo.md is linked as concepts/foo.md.
+    index_dir is the parent of index.md — wiki/ for standard layout,
+    the wiki root for flat layout (e.g. the vault where index.md is at root).
     """
     page_path = Path(page_path)
     if page_path.is_absolute():
-        try:
-            rel = page_path.resolve().relative_to(wiki_dir.resolve())
-        except ValueError as e:
-            raise ValueError(
-                f"page-path {page_path} is not inside wiki/ ({wiki_dir})"
-            ) from e
-        return rel.as_posix()
-    # Relative path: handle two cases.
-    # 1. "wiki/concepts/foo.md" — strip the wiki/ prefix.
-    # 2. "concepts/foo.md" — already relative to wiki/.
-    parts = page_path.parts
-    if parts and parts[0] == "wiki":
-        return Path(*parts[1:]).as_posix()
-    return page_path.as_posix()
+        resolved = page_path.resolve()
+    else:
+        resolved = (root / page_path).resolve()
+    try:
+        return resolved.relative_to(index_dir.resolve()).as_posix()
+    except ValueError as e:
+        raise ValueError(
+            f"page-path {page_path} resolves to {resolved}, which is not inside index dir ({index_dir})"
+        ) from e
 
 
 def parse_index(text: str) -> tuple[str, dict[str, list[str]]]:
@@ -190,16 +190,15 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path(args.path).expanduser().resolve()
-    wiki_dir = root / "wiki"
 
     try:
-        index_path = find_index(root)
+        index_path, index_dir = find_index(root)
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
     try:
-        link = relative_link_target(Path(args.page_path), wiki_dir)
+        link = relative_link_target(Path(args.page_path), root, index_dir)
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

@@ -74,7 +74,7 @@ If the user accepts:
 Even if the answer wasn't filed back. Every query gets a log entry:
 
 ```bash
-python scripts/append_log.py --action query \
+python scripts/append_log.py --path . --action query \
   --title "What did Pollan think about supplements?" \
   --details "Read concepts/nutritionism.md and sources/pollan-eat-food.md. Filed answer to notes/pollan-on-supplements.md."
 ```

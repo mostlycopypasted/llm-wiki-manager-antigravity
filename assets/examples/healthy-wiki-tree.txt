@@ -20,6 +20,7 @@ The shape is what matters: most pages have 2-5 inbound links, the index reflects
     ├── CLAUDE.md.bak                        # NOT here — schema lives at root
     ├── index.md                             # 200+ lines, all pages catalogued
     ├── log.md                               # 300+ entries, append-only
+    ├── hot.md                               # ~500-word hot cache; rewritten after every ingest
     ├── sources/                             # 1 page per ingested source
     │   ├── pollan-2008-eat-food.md
     │   ├── teicholz-2014-big-fat-surprise.md
@@ -75,3 +76,9 @@ What's NOT in this tree:
 - An "outline" or "TOC" page — the index does that work
 - Per-source inline images — source images stay in raw/assets/ unless they're worth surfacing
 - Generated TOCs or chrome — Markdown editors handle that
+
+What IS in this tree that beginners often omit:
+
+- hot.md — the ~500-word hot cache. Without it, cross-project linking has no fast entry point.
+- reports/ — separate from notes/; keeps automated lint artifacts out of user content.
+- CLAUDE.md at the root (not inside wiki/) — so every session starts from the schema.

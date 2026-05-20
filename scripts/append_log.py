@@ -27,19 +27,18 @@ import sys
 from pathlib import Path
 
 
-VALID_ACTIONS = {"ingest", "query", "lint", "bootstrap", "schema-evolve", "note", "update", "audit"}
+VALID_ACTIONS = {"ingest", "query", "lint", "bootstrap", "schema-evolve", "note", "update", "audit", "setup", "restructure"}
 
 
 def find_log(root: Path) -> Path:
-    """Find wiki/log.md relative to root. Create parent if needed."""
-    log = root / "wiki" / "log.md"
-    if not log.exists():
-        # Fail loudly — the wiki must already be initialized.
-        # Don't silently create a log in an arbitrary directory.
-        raise FileNotFoundError(
-            f"No log found at {log}. Run init_wiki.py first to scaffold the wiki."
-        )
-    return log
+    """Find log.md — checks wiki/log.md first (standard layout), then root/log.md (flat layout)."""
+    for candidate in [root / "wiki" / "log.md", root / "log.md"]:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        f"No log.md found at {root / 'wiki' / 'log.md'} or {root / 'log.md'}. "
+        "Run init_wiki.py first to scaffold the wiki."
+    )
 
 
 def append_entry(log_path: Path, action: str, title: str, details: str, date: str) -> None:

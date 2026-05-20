@@ -26,7 +26,7 @@ Sketch them in plain words:
 - **`wiki/`** — the LLM's knowledge base. Markdown pages — one per source, plus pages for the people, ideas, and concepts that span sources. The LLM writes all of it.
 - **`CLAUDE.md`** — the instruction sheet for the LLM. How this particular wiki is organized. Co-evolved over time as conventions emerge.
 
-Use a concrete example: "If you ingested *In Defense of Food* by Michael Pollan, you'd end up with a page summarizing the book in `wiki/sources/`, a page on Pollan in `wiki/entities/`, a page on the concept of *nutritionism* in `wiki/concepts/`, and entries for all three in `wiki/index.md`."
+Use a concrete example: "If you ingested *In Defense of Food* by Michael Pollan, you'd end up with a page summarizing the book in `wiki/sources/`, a page on Pollan in `wiki/entities/`, a page on the concept of *nutritionism* in `wiki/concepts/`, entries for all three in `wiki/index.md`, a log entry in `wiki/log.md`, and a rewritten `wiki/hot.md` with a summary of the ingest."
 
 ### 3. The division of labor (one minute)
 

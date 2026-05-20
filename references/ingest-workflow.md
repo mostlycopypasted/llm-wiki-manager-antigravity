@@ -100,7 +100,7 @@ Run `scripts/update_index.py` for each new page and for any page whose summary c
 ```bash
 python scripts/update_index.py --category concepts \
   --title "Nutritionism" \
-  --path "wiki/concepts/nutritionism.md" \
+  --page-path "wiki/concepts/nutritionism.md" \
   --summary "Reductive ideology that food = nutrients (5 sources)"
 ```
 
@@ -118,7 +118,18 @@ python scripts/append_log.py --action ingest \
 
 The log entry should be specific enough that "what did I do last week" returns useful answers later.
 
-### 10. Brief recap to the user
+### 10. Rewrite hot.md
+
+If the wiki has a `hot.md` (at `wiki/hot.md` or at the wiki root), **rewrite it entirely** — do not append. Update:
+
+- **Vault state:** page count, main themes.
+- **Active knowledge:** move the current ingest to the top of this section as a new bullet. Trim the oldest bullet if the section exceeds ~5 entries.
+- **Open work items:** add anything surfaced during ingest (a gap in coverage, an open question, a follow-up source worth finding).
+- **Tag inventory:** add any new tags introduced in this ingest.
+
+Rewriting (not appending) is important: `hot.md` is a cache, not a log. Its job is to give a future session — or a cross-project reader — an instant orientation. An append-only `hot.md` becomes too long to serve that purpose.
+
+### 11. Brief recap to the user
 
 End with a short summary: pages created, pages updated, anything notable (a strong contradiction with existing material, an open question worth investigating, a missing source that would help). Three to six lines.
 

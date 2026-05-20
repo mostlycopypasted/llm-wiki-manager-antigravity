@@ -154,7 +154,8 @@ A common failure: turning the schema into a kitchen sink of every preference the
 
 - A purpose placeholder (filled from the bootstrap conversation)
 - The standard layers
-- Default categories (sources, entities, concepts, notes)
+- Structural files: `wiki/index.md`, `wiki/log.md`, `wiki/hot.md` (with rewrite-on-ingest rule)
+- Default categories (sources, entities, concepts, notes, reports)
 - Default conventions (lowercase-hyphenated slugs, standard markdown links, optional frontmatter)
 - A minimal default page structure for each category
 - A "Workflow notes" section, mostly empty, for the user to populate

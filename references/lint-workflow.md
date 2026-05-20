@@ -70,7 +70,7 @@ After fixes:
 
 ```bash
 # Update index for any new or substantially-changed pages
-python scripts/update_index.py --category ... --title ... --path ... --summary ...
+python scripts/update_index.py --path . --category ... --title ... --page-path ... --summary ...
 
 # One log entry summarizing the pass
 python scripts/append_log.py --action lint \
@@ -94,9 +94,9 @@ The user will rarely ask for it on schedule. It's worth proactively suggesting a
 | Check | What it does | Severity |
 |---|---|---|
 | `broken_links` | Markdown links to non-existent files within the wiki | block |
-| `index_missing` | Pages that exist but aren't in `wiki/index.md` | quality |
+| `index_missing` | Pages that exist but aren't in `wiki/index.md` (reads both `[markdown](links)` and `[[wiki-links]]` in the index) | quality |
 | `index_dead` | Index entries pointing to deleted files | block |
-| `orphans` | Pages with zero inbound links | quality |
+| `orphans` | Pages with zero inbound links (checks both `[markdown](links)` and `[[wiki-links]]`) | quality |
 | `stub_pages` | Pages under ~50 words | quality |
 | `raw_missing` | Wiki pages citing `raw/` files that don't exist | block |
 | `log_gaps` | Stretches of >30 days with no log entry, in an otherwise active wiki | suggestion |

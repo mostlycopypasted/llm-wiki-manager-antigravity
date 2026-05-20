@@ -79,8 +79,16 @@ def init_wiki(root: Path, name: str, topic: str) -> tuple[list[str], list[str]]:
 
     wiki_dir = root / "wiki"
     wiki_dir.mkdir(parents=True, exist_ok=True)
-    for sub in ("sources", "entities", "concepts", "notes", "reports"):
-        ensure_dir_with_gitkeep(wiki_dir / sub, created=created, skipped=skipped)
+
+    # Only create categorical subdirs for fresh wikis.
+    # If wiki/ already has .md content, the user has their own structure — don't impose ours.
+    # Always create reports/ so lint_wiki.py has a place to write dated reports.
+    wiki_has_content = any(wiki_dir.rglob("*.md"))
+    if wiki_has_content:
+        ensure_dir_with_gitkeep(wiki_dir / "reports", created=created, skipped=skipped)
+    else:
+        for sub in ("sources", "entities", "concepts", "notes", "reports"):
+            ensure_dir_with_gitkeep(wiki_dir / sub, created=created, skipped=skipped)
 
     # CLAUDE.md (schema)
     claude_template = TEMPLATES_DIR / "wiki-CLAUDE.md.tmpl"
@@ -130,6 +138,20 @@ def init_wiki(root: Path, name: str, topic: str) -> tuple[list[str], list[str]]:
     else:
         content = f"# Log\n\n## [{today}] bootstrap | Wiki initialized\nTopic: {topic}\n"
     write_if_missing(wiki_dir / "log.md", content, created=created, skipped=skipped)
+
+    # hot.md (Karpathy's recommended hot cache file)
+    hot_template = TEMPLATES_DIR / "hot.md.tmpl"
+    if hot_template.exists():
+        content = render_template(hot_template, {"TODAY": today})
+    else:
+        content = (
+            f"---\ntype: hot\ncreated: {today}\nupdated: {today}\n---\n\n"
+            "# Hot\n\nHot cache — rewrite after every ingest.\n\n"
+            "## Vault state\n\n*No ingests yet.*\n\n"
+            "## Active knowledge\n\n*No ingests yet.*\n\n"
+            "## Open work items\n\n- Drop the first source and ingest it.\n"
+        )
+    write_if_missing(wiki_dir / "hot.md", content, created=created, skipped=skipped)
 
     return created, skipped
 

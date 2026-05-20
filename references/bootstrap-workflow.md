@@ -37,25 +37,29 @@ That's it for the fast path. Total interaction: one confirmation, one sentence, 
 └── wiki/
     ├── index.md           # Empty, with category headers
     ├── log.md             # Empty, with one bootstrap entry
+    ├── hot.md             # Hot cache — rewrite after every ingest
     ├── sources/
     │   └── .gitkeep
     ├── entities/
     │   └── .gitkeep
     ├── concepts/
     │   └── .gitkeep
-    └── notes/
+    ├── notes/
+    │   └── .gitkeep
+    └── reports/
         └── .gitkeep
 ```
 
 The starter `CLAUDE.md` (from `assets/templates/wiki-CLAUDE.md.tmpl`) declares the conventions a fresh wiki uses:
 
 - Three layers (raw / wiki / schema)
-- Default categories (sources, entities, concepts, notes)
+- Structural files: `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`
+- Default categories (sources, entities, concepts, notes, reports)
 - Wiki-link style: standard markdown `[Title](path.md)`
 - Slug naming: lowercase-with-hyphens
 - Source filename suggestion: `YYYY-MM-author-short-title.ext`
 - Page frontmatter: optional, off by default
-- Bookkeeping discipline: every operation logs and indexes
+- Bookkeeping discipline: every operation logs, indexes, and rewrites hot.md
 
 These are starting defaults. The user changes them as conventions evolve.
 
@@ -80,7 +84,7 @@ Common case: the user drops three PDFs and a markdown file in `raw/` (or pastes 
 
 ## When `init_wiki.py` finds an existing wiki
 
-Idempotent: it adds any missing pieces (e.g. a `wiki/notes/` directory if the user deleted it) and leaves existing files alone. It logs what it did. Re-running it after manual reorganization is safe.
+Idempotent: on an existing wiki (one with `.md` files already under `wiki/`), it only adds `wiki/reports/` if missing — it will **not** create `sources/`, `entities/`, `concepts/`, or `notes/` directories, and leaves all existing files untouched. This preserves flat or custom wiki structures. Re-running after manual reorganization is always safe.
 
 If the user is moving an existing pile of markdown into the pattern, that's not "bootstrap" — that's migration. Treat each existing file like an ingested source and run them through the ingest workflow.
 
@@ -89,6 +93,7 @@ If the user is moving an existing pile of markdown into the pattern, that's not 
 - `CLAUDE.md` exists at the wiki root, customized with the topic and any agreed conventions.
 - `wiki/index.md` exists with category headers, possibly empty.
 - `wiki/log.md` has at least one entry: the bootstrap.
+- `wiki/hot.md` exists — will be rewritten after the first ingest.
 - The user knows where to drop sources (`raw/`) and how to ask for an ingest.
 - The user understands the LLM owns `wiki/`, never `raw/`.
 

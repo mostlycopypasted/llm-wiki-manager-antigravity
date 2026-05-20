@@ -4,7 +4,7 @@ description: Build, maintain, and query a personal LLM-managed wiki — a markdo
 license: MIT
 metadata:
   author: sametbrr
-  version: "1.1"
+  version: "1.2"
   tags:
     - wiki
     - knowledge-management
@@ -25,7 +25,7 @@ The pattern is intentionally tool-agnostic — it's just markdown files in a git
 Every wiki this skill manages has exactly three layers. Confusing them is the most common failure mode.
 
 1. **`raw/`** — immutable sources the user curates. Articles, PDFs, transcripts, screenshots, data files. **The LLM reads from `raw/` but never modifies it.** This is the source of truth; if it gets edited the audit trail breaks.
-2. **`wiki/`** — markdown pages the LLM owns entirely. Source summaries, entity pages, concept pages, comparisons, an `index.md`, a `log.md`. The user reads it; the LLM writes it. Pages link to each other and back to specific files in `raw/`.
+2. **`wiki/`** — markdown pages the LLM owns entirely. Source summaries, entity pages, concept pages, comparisons. Three structural files always live here: `wiki/index.md` (content catalog), `wiki/log.md` (operation log), `wiki/hot.md` (~500-word hot cache, rewritten after every ingest). The user reads it; the LLM writes it. Pages link to each other and back to specific files in `raw/`.
 3. **`CLAUDE.md`** (at the wiki root) — the schema. Tells future LLM sessions how this particular wiki is structured, what the page conventions are, how categories are named, how aggressive ingest should be. **Co-evolved with the user over time** — when something works, write it down here so the next session inherits it.
 
 The whole point of the pattern is that `wiki/` is a **persistent, compounding artifact**. It is *not* re-derived on every query. New sources update existing pages in place. That is what separates this from RAG.
@@ -51,7 +51,7 @@ If multiple modes apply (e.g., user asks a question and wants the answer filed b
 
 **Multi-wiki requires `CLAUDE.md` configuration.** Before any multi-wiki operation, read the project `CLAUDE.md` for an `## External Wiki` section that declares the global wiki path and routing rules. If the section is missing and a multi-wiki operation is requested, **run Schema-evolve first** to add it, then proceed. Never guess or assume the global wiki path. See `references/multi-wiki-routing.md` for the one-time setup block and the four canonical scenarios.
 
-## Core invariants (apply in every mode)
+## Core invariants (apply in every mode) — nine rules
 
 These are the disciplines that make a wiki compound. Skipping them is how wikis rot.
 
@@ -59,9 +59,9 @@ These are the disciplines that make a wiki compound. Skipping them is how wikis 
 
 Never write to `raw/`. Never ask the user to edit `wiki/` by hand (they can if they want, but the skill never asks). When summarizing a source, the summary lives in `wiki/sources/<source-slug>.md` and links back to the file in `raw/`.
 
-### 2. Every operation logs to `log.md`.
+### 2. Every operation logs to `wiki/log.md`.
 
-After any ingest, query, update, or lint, append a single entry using `scripts/append_log.py`:
+After any ingest, query, update, or lint, append a single entry using `scripts/append_log.py --path <wiki-root>`:
 
 ```
 ## [YYYY-MM-DD] ingest | <source title>
@@ -70,11 +70,11 @@ After any ingest, query, update, or lint, append a single entry using `scripts/a
 ## [YYYY-MM-DD] lint   | <pages touched or "clean">
 ```
 
-Consistent prefix matters — it makes the log greppable: `grep "^## \[" log.md | tail -20` shows recent activity. The script enforces the format. For lint, the script auto-logs by default — you don't need a separate `append_log.py` call after running `lint_wiki.py`. For ingest/query/update, the LLM calls the script.
+Consistent prefix matters — it makes the log greppable: `grep "^## \[" wiki/log.md | tail -20` shows recent activity. The script enforces the format. For lint, the script auto-logs by default — you don't need a separate `append_log.py` call after running `lint_wiki.py`. For ingest/query/update, the LLM calls the script.
 
-### 3. Every new or significantly-updated page touches `index.md`.
+### 3. Every new or significantly-updated page touches `wiki/index.md`.
 
-Use `scripts/update_index.py`. The index is content-oriented: category, title, one-line summary, link. It is the LLM's primary navigation aid in future sessions when the wiki is large. Stale index = wiki that feels lost.
+Use `scripts/update_index.py --path <wiki-root>`. The index is content-oriented: category, title, one-line summary, link. It is the LLM's primary navigation aid in future sessions when the wiki is large. Stale index = wiki that feels lost.
 
 ### 4. Cross-reference aggressively.
 
@@ -97,11 +97,15 @@ In synthesis pages (entity, concept, comparison), use inline references like `(s
 
 If a new source contradicts an existing claim on a wiki page, do **not** just replace the old claim. Add the new claim alongside, mark both with their source, and note the conflict — usually as a `> [!warning] Sources disagree` callout or a "Disputes" subsection. The user decides which to believe; the wiki records the disagreement.
 
-### 7. The schema lives in `CLAUDE.md` and is updated when conventions change.
+### 7. Rewrite `wiki/hot.md` after every ingest.
+
+`wiki/hot.md` is a ~500-word hot cache: vault state, the latest ingest, open work items, tag inventory. It is the first file a cross-project reader sees. **Rewrite entirely — do not append.** If the file doesn't exist yet, create it from `assets/templates/hot.md.tmpl`. See `references/ingest-workflow.md` Step 10 for the rewrite checklist.
+
+### 8. The schema lives in `CLAUDE.md` and is updated when conventions change.
 
 If a working pattern emerges in conversation ("let's always tag book chapters with `chapter:N`"), write it into `CLAUDE.md` immediately so the next session inherits it. The user shouldn't have to re-explain conventions every session.
 
-### 8. If the project's `CLAUDE.md` declares an `External Wiki`, honor it.
+### 9. If the project's `CLAUDE.md` declares an `External Wiki`, honor it.
 
 Some users run two wikis: a per-project wiki at the working directory and a long-lived global wiki (often an existing Obsidian vault) at a fixed path. The project's `CLAUDE.md` declares the global wiki's location with a section like:
 
@@ -126,6 +130,7 @@ When this section is present, **read both `CLAUDE.md` files at session start** (
 └── wiki/              # LLM-managed pages
     ├── index.md       # Content catalog by category
     ├── log.md         # Chronological log of operations
+    ├── hot.md         # ~500-word hot cache — rewrite after every ingest
     ├── sources/       # One summary page per ingested source
     ├── entities/      # People, organizations, products, places
     ├── concepts/      # Ideas, theories, frameworks, terms
@@ -141,12 +146,12 @@ The `entities/`, `concepts/`, `sources/`, `notes/` split is the **default** sugg
 
 All four are in `scripts/`. They are deliberately small, idempotent, and dependency-free (Python stdlib only).
 
-- **`init_wiki.py`** — scaffold a new wiki at a given path. Idempotent. See `references/bootstrap-workflow.md`.
-- **`append_log.py`** — append a log entry with the consistent `## [YYYY-MM-DD] action | title` prefix. Use after every ingest, query, update, and lint. See script `--help`. Valid actions: `ingest`, `query`, `update`, `lint`, `audit`, `bootstrap`, `schema-evolve`, `note`.
-- **`update_index.py`** — add or update an entry under a category in `index.md`. Idempotent on (category, title) — won't duplicate.
-- **`lint_wiki.py`** — scan for orphan pages, broken links, index/filesystem drift, log gaps. **Default behavior**: writes report to `wiki/reports/lint-<today>.md`, then auto-tracks (adds Reports index entry, appends `lint | Health check` log entry). Same-day re-runs overwrite the report file. Override with `--stdout` (no file, no track), `--report PATH` (custom path; auto-tracks only if path is inside `wiki/`), or `--no-track` (write file but skip index/log updates). See `references/lint-workflow.md`.
+- **`init_wiki.py`** — scaffold a new wiki. Creates `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`, categorical subdirs, `CLAUDE.md`, `README.md`. On an **existing wiki** (already has `.md` files in `wiki/`) only adds `wiki/reports/` if missing — never imposes categorical dirs or overwrites files. Idempotent. See `references/bootstrap-workflow.md`.
+- **`append_log.py`** — append a log entry with the consistent `## [YYYY-MM-DD] action | title` prefix. Use after every ingest, query, update, and lint. Auto-detects `wiki/log.md` (standard) or `root/log.md` (flat layout). Always pass `--path <wiki-root>`. Valid actions: `ingest`, `query`, `update`, `lint`, `audit`, `bootstrap`, `schema-evolve`, `note`, `setup`, `restructure`.
+- **`update_index.py`** — add or update an entry under a category in `wiki/index.md`. Auto-detects `wiki/index.md` (standard) or `root/index.md` (flat layout). Preserves `#tag`-style category names. Always pass `--path <wiki-root>` and `--page-path <path-to-page>`. Idempotent on (category, title).
+- **`lint_wiki.py`** — scan for orphan pages, broken links, index/filesystem drift, log gaps. Supports both `[markdown](links)` and `[[wiki-links]]` for orphan and index-drift detection. `wiki/hot.md` excluded from orphan/stub/index checks. Auto-detects log and index in both `wiki/` and root layouts. **Default behavior**: writes report to `wiki/reports/lint-<today>.md`, then auto-tracks (adds Reports index entry, appends `lint | Health check` log entry). Same-day re-runs overwrite the report file. Override with `--stdout`, `--report PATH`, or `--no-track`. See `references/lint-workflow.md`.
 
-Always prefer running these scripts to hand-editing `index.md` or `log.md`. They keep the format consistent across sessions and make the wiki greppable.
+Always prefer running these scripts to hand-editing `wiki/index.md` or `wiki/log.md`. They keep the format consistent across sessions and make the wiki greppable.
 
 For **update mode**, no new script is needed — the workflow uses `append_log.py` (with `--action update`) and `update_index.py` orchestrated by the LLM following `references/update-workflow.md`. The diffs and multi-page sweep are LLM work, not script work, because they require semantic judgment.
 
@@ -157,7 +162,8 @@ For **multi-wiki mode**, scripts are called with `--path <wiki-root>` to operate
 In `assets/templates/`. Use them as starting points; adapt freely:
 
 - `wiki-CLAUDE.md.tmpl` — the schema file dropped into a fresh wiki by `init_wiki.py`
-- `index.md.tmpl`, `log.md.tmpl` — initial scaffolding
+- `index.md.tmpl`, `log.md.tmpl` — initial scaffolding for `wiki/index.md` and `wiki/log.md`
+- `hot.md.tmpl` — initial scaffolding for `wiki/hot.md` (vault state, active knowledge, open items, tag inventory)
 - `source-summary.md.tmpl` — one ingested source, full structure
 - `entity-page.md.tmpl` — a person, org, place, or product
 - `concept-page.md.tmpl` — an idea, framework, or term

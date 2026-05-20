@@ -15,6 +15,14 @@
 - `wiki/` — LLM-managed pages. Owned by Claude. The user reads, doesn't write.
 - `CLAUDE.md` (this file) — schema. Co-evolved with the user as conventions emerge.
 
+## Structural files
+
+Always in `wiki/` root — maintained by the LLM, never by hand:
+
+- `wiki/index.md` — content catalog by category; updated by `scripts/update_index.py` on every ingest.
+- `wiki/log.md` — append-only operation log; updated by `scripts/append_log.py` on every ingest/query/lint.
+- `wiki/hot.md` — ~500-word hot cache (vault state, latest ingests, open items, tag inventory); **rewritten entirely** after every ingest.
+
 ## Categories
 
 Default layout. Adjust as the wiki grows.
@@ -94,9 +102,10 @@ Apply on every operation:
 
 1. **Log every operation.** Use `scripts/append_log.py`. Format: `## [YYYY-MM-DD] action | title`.
 2. **Update the index** for every new or substantially-updated page. Use `scripts/update_index.py`.
-3. **Cross-reference aggressively.** When ingesting a source about an entity that already has a page, update that page in place. Don't leave the connection in the source summary alone.
-4. **Cite back to sources.** Every claim should be traceable to a specific source.
-5. **Flag contradictions.** When new sources disagree with existing claims, add both with citations and note the conflict. Never silently overwrite.
+3. **Rewrite `wiki/hot.md` after every ingest.** Do not append — rewrite entirely. Update vault state, active knowledge (latest ingest at top), open work items, tag inventory.
+4. **Cross-reference aggressively.** When ingesting a source about an entity that already has a page, update that page in place. Don't leave the connection in the source summary alone.
+5. **Cite back to sources.** Every claim should be traceable to a specific source.
+6. **Flag contradictions.** When new sources disagree with existing claims, add both with citations and note the conflict. Never silently overwrite.
 
 ## Workflow notes
 

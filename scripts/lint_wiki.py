@@ -37,9 +37,15 @@ from pathlib import Path
 LINK_PATTERN = re.compile(
     r"\[(?P<text>[^\]]+)\]\((?P<url>[^)\s]+)(?:\s+\"[^\"]*\")?\)"
 )
+# Obsidian wiki-links: [[slug]] or [[slug|alias]]
+WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]*)?\]\]")
 LOG_DATE_PATTERN = re.compile(r"^## \[(\d{4}-\d{2}-\d{2})\]")
 INDEX_LINK_PATTERN = re.compile(
     r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)"
+)
+# Obsidian-style [[slug]] or [[slug|alias]] wiki-links in index entries
+INDEX_WIKILINK_PATTERN = re.compile(
+    r"^\s*-\s*\[\[([^\]|]+)(?:\|[^\]]*)?\]\]"
 )
 
 
@@ -55,10 +61,10 @@ def find_md_files(wiki_dir: Path) -> list[Path]:
     """All .md files under wiki/, excluding structural files and auto-generated reports.
 
     Skips:
-      - wiki/index.md and wiki/log.md (structural, not content)
+      - wiki/index.md, wiki/log.md, wiki/hot.md (structural meta files)
       - wiki/reports/* (auto-generated lint/audit artifacts; tracked separately)
     """
-    skip_names = {"index.md", "log.md"}
+    skip_names = {"index.md", "log.md", "hot.md"}
     reports_dir = (wiki_dir / "reports").resolve()
     out: list[Path] = []
     for p in wiki_dir.rglob("*.md"):
@@ -75,21 +81,29 @@ def find_md_files(wiki_dir: Path) -> list[Path]:
 
 def collect_links(md_path: Path, wiki_dir: Path) -> list[tuple[str, Path]]:
     """
-    Returns list of (raw_url, resolved_path_or_None) for all internal links in the file.
-    Resolved path is None if the link is external or anchor-only.
+    Returns list of (raw_url, resolved_path) for all internal links in the file.
+    Handles both standard markdown links [text](url) and Obsidian [[slug]] wiki-links.
+    Unresolved wiki-links (slug not found) are silently skipped.
     """
     text = md_path.read_text(encoding="utf-8", errors="replace")
     out: list[tuple[str, Path]] = []
+
     for m in LINK_PATTERN.finditer(text):
         url = m.group("url")
         if is_external(url) or is_anchor_only(url):
             continue
-        # Strip URL fragment
         target = url.split("#", 1)[0]
         if not target:
             continue
         resolved = (md_path.parent / target).resolve()
         out.append((url, resolved))
+
+    for m in WIKILINK_PATTERN.finditer(text):
+        slug = m.group(1).strip()
+        matches = list(wiki_dir.rglob(f"{slug}.md"))
+        if matches:
+            out.append((f"[[{slug}]]", matches[0].resolve()))
+
     return out
 
 
@@ -125,22 +139,25 @@ def check_broken_links(
 
 def check_orphans(md_files: list[Path], wiki_dir: Path, root: Path) -> list[Path]:
     """
-    Pages with zero inbound links from any other page in wiki/ or from index.md.
+    Pages with zero inbound links from any other page in wiki/ or from structural meta files.
     Returns list of orphan page paths.
     """
-    # Build a set of resolved paths that ARE referenced by some page.
     referenced: set[Path] = set()
-    index_md = wiki_dir / "index.md"
+    content_resolved = {p.resolve() for p in md_files}
 
+    # Scan content pages + structural meta files that contain links.
+    # Try both standard (wiki/index.md) and flat-vault (root/index.md) locations.
     candidate_files = list(md_files)
-    if index_md.exists():
-        candidate_files.append(index_md)
+    for meta in [
+        wiki_dir / "index.md", root / "index.md",
+        wiki_dir / "hot.md", wiki_dir / "overview.md",
+    ]:
+        if meta.exists() and meta.resolve() not in content_resolved:
+            candidate_files.append(meta)
 
     for md in candidate_files:
         for _url, resolved in collect_links(md, wiki_dir):
             try:
-                # Only count links targeting files that exist (otherwise they're broken,
-                # not connections).
                 if resolved.exists():
                     referenced.add(resolved)
             except OSError:
@@ -155,9 +172,14 @@ def check_index_drift(
 ) -> tuple[list[Path], list[dict]]:
     """
     Returns (pages_missing_from_index, dead_index_entries).
+    Checks wiki/index.md first (standard layout), then root/index.md (flat layout).
     """
-    index_md = wiki_dir / "index.md"
-    if not index_md.exists():
+    for candidate in [wiki_dir / "index.md", wiki_dir.parent / "index.md"]:
+        if candidate.exists():
+            index_md = candidate
+            index_dir = candidate.parent
+            break
+    else:
         return md_files, []
 
     text = index_md.read_text(encoding="utf-8", errors="replace")
@@ -166,17 +188,29 @@ def check_index_drift(
     indexed_targets: set[Path] = set()
     dead: list[dict] = []
     for line in text.splitlines():
+        # Standard markdown links: [Title](path.md)
         m = INDEX_LINK_PATTERN.match(line)
-        if not m:
+        if m:
+            title, url = m.group(1), m.group(2)
+            if is_external(url) or is_anchor_only(url):
+                continue
+            target = (index_dir / url.split("#", 1)[0]).resolve()
+            if target.exists():
+                indexed_targets.add(target)
+            else:
+                dead.append({"title": title, "url": url, "resolved": str(target)})
             continue
-        title, url = m.group(1), m.group(2)
-        if is_external(url) or is_anchor_only(url):
-            continue
-        target = (wiki_dir / url.split("#", 1)[0]).resolve()
-        if target.exists():
-            indexed_targets.add(target)
-        else:
-            dead.append({"title": title, "url": url, "resolved": str(target)})
+
+        # Obsidian wiki-links: [[slug]] or [[slug|alias]]
+        wm = INDEX_WIKILINK_PATTERN.match(line)
+        if wm:
+            slug = wm.group(1).strip()
+            # Resolve slug to a .md file anywhere under wiki_dir
+            matches = list(wiki_dir.rglob(f"{slug}.md"))
+            if matches:
+                indexed_targets.add(matches[0].resolve())
+            # Wiki-links that point to non-existent slugs are silently ignored
+            # (they may be forward references or stubs)
 
     missing = [p for p in md_files if p.resolve() not in indexed_targets]
     return missing, dead
@@ -200,8 +234,11 @@ def check_stub_pages(md_files: list[Path], min_words: int) -> list[dict]:
 
 def check_log_gaps(wiki_dir: Path, gap_days: int) -> list[dict]:
     """Look for stretches of >gap_days between log entries in log.md."""
-    log_path = wiki_dir / "log.md"
-    if not log_path.exists():
+    for candidate in [wiki_dir / "log.md", wiki_dir.parent / "log.md"]:
+        if candidate.exists():
+            log_path = candidate
+            break
+    else:
         return []
     text = log_path.read_text(encoding="utf-8", errors="replace")
     dates: list[dt.date] = []
