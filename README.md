@@ -18,7 +18,7 @@ git clone https://github.com/sametbrr/llm-wiki-manager ~/.claude/skills/llm-wiki
 
 Instead of RAG — where the LLM rediscovers answers from raw documents on every query — this pattern has the LLM **compile** raw sources into a persistent, interlinked markdown wiki. Each new source enriches existing pages. Cross-references are built eagerly. Contradictions are flagged. Knowledge compounds over time.
 
-Implements [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) as a full Claude Code skill with 8 operating modes (including multi-wiki routing), 4 idempotent Python scripts, 7 page templates, and 9 reference documents.
+Implements [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) as a full Claude Code skill with 8 operating modes (including multi-wiki routing), 4 idempotent Python scripts, 8 page templates, and 9 reference documents.
 
 ```
 Without this pattern          With this pattern
@@ -63,6 +63,7 @@ your-wiki/
 └── wiki/              # LLM layer — all pages written and maintained by the LLM
     ├── index.md       # Content catalog (updated on every ingest)
     ├── log.md         # Append-only operation log (greppable)
+    ├── hot.md         # Hot cache — most recently ingested sources and active references
     ├── sources/       # One summary page per ingested source
     ├── entities/      # People, organizations, places, products
     ├── concepts/      # Ideas, theories, frameworks, terms
@@ -119,10 +120,10 @@ The skill auto-detects which mode applies from natural language. No slash comman
 
 | Script | Purpose |
 |---|---|
-| `scripts/init_wiki.py` | Scaffold a new wiki. Run it again safely — idempotent. |
-| `scripts/append_log.py` | Append a `## [YYYY-MM-DD] action \| title` entry to `log.md`. |
-| `scripts/update_index.py` | Add or update an entry under a category in `index.md`. Upserts by (category, title). |
-| `scripts/lint_wiki.py` | Health check. Default: writes `wiki/reports/lint-<today>.md` and auto-tracks. Run `--stdout` for terminal output. |
+| `scripts/init_wiki.py` | Scaffold a new wiki — creates `raw/`, `wiki/`, `CLAUDE.md`, `index.md`, `log.md`, and `hot.md`. Idempotent. |
+| `scripts/append_log.py` | Append a `## [YYYY-MM-DD] action \| title` entry to `log.md`. Supports flexible log path detection. |
+| `scripts/update_index.py` | Add or update an entry under a category in `index.md`. Upserts by (category, title). Flexible index path detection. |
+| `scripts/lint_wiki.py` | Health check. Detects orphan pages and index drift in both standard markdown and Obsidian wiki-link (`[[...]]`) format. Default: writes `wiki/reports/lint-<today>.md` and auto-tracks. Run `--stdout` for terminal output. |
 
 ### Templates
 
@@ -135,6 +136,7 @@ The skill auto-detects which mode applies from natural language. No slash comman
 | `comparison-page.md.tmpl` | "X vs Y" pages, often filed-back query answers |
 | `index.md.tmpl` | Initial content catalog |
 | `log.md.tmpl` | Initial log with bootstrap entry |
+| `hot.md.tmpl` | Initial hot cache — rewritten after each ingest with latest sources and active references |
 
 ### Reference docs
 
