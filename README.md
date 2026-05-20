@@ -281,8 +281,6 @@ After installing, start a new Claude Code session. The skill loads automatically
 ## Related
 
 - [Karpathy's LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — the original idea
-- [kfchou/wiki-skills](https://github.com/kfchou/wiki-skills) — 6-command implementation, includes audit mode
-- [lewislulu/llm-wiki-skill](https://github.com/lewislulu/llm-wiki-skill) — Obsidian-native with web preview server
 - [agentskills.io](https://agentskills.io) — open standard spec
 
 ---
