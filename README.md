@@ -1,20 +1,31 @@
-# llm-wiki-manager
-
-> A Claude Code skill for building and maintaining a personal LLM-managed wiki — a persistent, compounding knowledge base where the LLM does all the writing, cross-referencing, and bookkeeping while you curate sources and ask questions.
-
 [![Release](https://img.shields.io/github/v/release/sametbrr/llm-wiki-manager?display_name=tag&sort=semver)](https://github.com/sametbrr/llm-wiki-manager/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Agent Skills](https://img.shields.io/badge/agentskills.io-compatible-blue)](https://agentskills.io)
-[![Works with Claude Code](https://img.shields.io/badge/Claude%20Code-compatible-blueviolet)](https://claude.ai/code)
+
+# LLM Wiki Manager
+
+A Claude Code skill for building and maintaining a personal LLM-managed wiki — a persistent, compounding knowledge base where the LLM does all the writing, cross-referencing, and bookkeeping while you curate sources and ask questions.
+
+> 🇹🇷 Türkçe için [README.tr.md](README.tr.md)
+
+---
+
+## Quick Start
 
 ```bash
-# Install
 git clone https://github.com/sametbrr/llm-wiki-manager ~/.claude/skills/llm-wiki-manager
+```
+
+Start a new Claude Code session in your research folder:
+
+```bash
+mkdir ~/research/my-topic && cd ~/research/my-topic && claude
+> "Set up an LLM wiki here. Topic: history of nutrition science."
 ```
 
 ---
 
-## What is this?
+## Features
 
 Instead of RAG — where the LLM rediscovers answers from raw documents on every query — this pattern has the LLM **compile** raw sources into a persistent, interlinked markdown wiki. Each new source enriches existing pages. Cross-references are built eagerly. Contradictions are flagged. Knowledge compounds over time.
 
@@ -30,13 +41,60 @@ Query 3 → re-read 50 docs     Query 3 → read updated wiki (contradictions al
 
 ---
 
-## Quick start
+## Requirements
+
+- Claude Code or any [agentskills.io](https://agentskills.io)-compatible agent
+- Python 3.9+ (stdlib only, for the 4 included scripts — no pip install needed)
+
+---
+
+## Installation
+
+**Option 1 — git clone (recommended)**
+```bash
+git clone https://github.com/sametbrr/llm-wiki-manager ~/.claude/skills/llm-wiki-manager
+```
+
+**Option 2 — GitHub CLI** (requires gh CLI v2.90+)
+```bash
+gh skill install sametbrr/llm-wiki-manager
+```
+
+**Option 3 — .skill file**
+```bash
+curl -L -o llm-wiki-manager.skill \
+  https://github.com/sametbrr/llm-wiki-manager/releases/latest/download/llm-wiki-manager.skill
+unzip llm-wiki-manager.skill -d ~/.claude/skills/llm-wiki-manager
+```
+
+After installing, start a new Claude Code session. The skill loads automatically when relevant.
+
+---
+
+## Usage
+
+The skill auto-detects which mode applies from natural language. No slash commands needed.
+
+### Modes
+
+| Mode | Trigger examples | What happens |
+|---|---|---|
+| **Bootstrap** | "Set up a wiki", "start a knowledge base here" | Scaffolds `raw/`, `wiki/`, `CLAUDE.md` from templates |
+| **Ingest** | "Add this PDF to the wiki", "I just read X, file it" | Reads source → writes summary → updates entity/concept pages → indexes → logs |
+| **Query** | "What does the wiki say about X?", "Compare X and Y" | Reads index → candidate pages → synthesizes answer with citations → offers to file back |
+| **Update** | "Smith 2024 supersedes Keys 1980, update the wiki" | Semantic sweep across all pages → diff-before-write per page → single log entry |
+| **Lint** | "Health check the wiki", "anything broken?" | Runs `lint_wiki.py` → auto-saves `wiki/reports/lint-YYYY-MM-DD.md` → auto-tracks in index and log |
+| **Schema-evolve** | "We should always do X going forward" | Updates `CLAUDE.md` so future sessions inherit the convention |
+| **Multi-wiki** | "Add this to my global wiki", "promote this page to global" | Routes between project wiki and global wiki using the `External Wiki:` declaration in project `CLAUDE.md` |
+| **Teach** | "How does this pattern work?", "explain the LLM wiki idea" | Explains the pattern, compares with RAG, walks through a concrete example |
+
+### Full walkthrough
 
 ```bash
 # 1. Go to your research folder
 mkdir ~/research/my-topic && cd ~/research/my-topic && claude
 
-# 2. In Claude Code — bootstrap the wiki
+# 2. Bootstrap the wiki
 > "Set up an LLM wiki here. Topic: history of nutrition science."
 
 # 3. Drop a source
@@ -85,24 +143,7 @@ You almost never write wiki pages by hand. The LLM does the bookkeeping — that
 
 ---
 
-## Modes
-
-The skill auto-detects which mode applies from natural language. No slash commands needed.
-
-| Mode | Trigger examples | What happens |
-|---|---|---|
-| **Bootstrap** | "Set up a wiki", "start a knowledge base here" | Scaffolds `raw/`, `wiki/`, `CLAUDE.md` from templates |
-| **Ingest** | "Add this PDF to the wiki", "I just read X, file it" | Reads source → writes summary → updates entity/concept pages → indexes → logs |
-| **Query** | "What does the wiki say about X?", "Compare X and Y" | Reads index → candidate pages → synthesizes answer with citations → offers to file back |
-| **Update** | "Smith 2024 supersedes Keys 1980, update the wiki" | Semantic sweep across all pages → diff-before-write per page → single log entry |
-| **Lint** | "Health check the wiki", "anything broken?" | Runs `lint_wiki.py` → auto-saves `wiki/reports/lint-YYYY-MM-DD.md` → auto-tracks in index and log |
-| **Schema-evolve** | "We should always do X going forward" | Updates `CLAUDE.md` so future sessions inherit the convention |
-| **Multi-wiki** | "Add this to my global wiki", "what does the global wiki say about X", "promote this page to global" | Routes between project wiki and global wiki using the `External Wiki:` declaration in project `CLAUDE.md` |
-| **Teach** | "How does this pattern work?", "explain the LLM wiki idea" | Explains the pattern, compares with RAG, walks through a concrete example |
-
----
-
-## Core disciplines (enforced in every mode)
+## Core disciplines
 
 1. **LLM owns `wiki/`. You own `raw/`.** No exceptions.
 2. **Every operation logs to `log.md`** via `append_log.py`. Greppable: `grep "^## \[" log.md | tail -20`
@@ -147,7 +188,7 @@ The skill reads these selectively — you don't need to. They're there to give t
 
 ---
 
-## Update mode — what makes this different
+## Update mode
 
 Standard ingest already handles contradictions on a single page (Disputes section). **Update mode** is for when a new source supersedes a claim that's paraphrased across multiple pages — the same idea written four different ways in four different files.
 
@@ -185,7 +226,7 @@ Override flags: `--stdout` (terminal, no tracking), `--no-track` (write file, sk
 
 ---
 
-## Multi-wiki — project wiki + global wiki
+## Multi-wiki
 
 Most users start with one wiki. Once you have **two** — say, a per-project wiki at the working directory plus a long-lived global "second brain" (often an existing Obsidian vault) — the skill routes writes between them based on a single declaration in the project's `CLAUDE.md`.
 
@@ -221,8 +262,6 @@ Global knowledge base: ~/Documents/obsidian/
 - Never use relative paths that cross wiki boundaries.
 ```
 
-The agent reads this on every session. No further configuration needed. The same `## External Wiki` block is present (commented out) in `assets/templates/wiki-CLAUDE.md.tmpl` — uncomment it on bootstrap if the project should reference a global wiki.
-
 ### Four canonical scenarios
 
 | # | Scenario | Trigger | What the agent does |
@@ -232,38 +271,7 @@ The agent reads this on every session. No further configuration needed. The same
 | **C** | **Promote** a page from project to global | "concepts/event-sourcing.md has matured, promote it" | Moves content to global → leaves a one-line redirect stub at the project path → updates both indexes and logs |
 | **D** | **Lint both** wikis at once | "Lint both wikis" | Runs `lint_wiki.py --path` against each → reads both reports → returns one summary |
 
-The agent always uses `--path <wiki-root>` when targeting scripts, never relies on `cwd`. Cross-wiki links are absolute (`~/...`) so they survive moves and git history rewrites. Project pages link **out** to global pages — they never copy global content, because copies rot when the global page evolves.
-
-Full walkthroughs of all four scenarios — exact prompts, plans, scripts, resulting file structures — are in [`references/multi-wiki-routing.md`](references/multi-wiki-routing.md).
-
-### When *not* to use multi-wiki
-
-Don't split prematurely. A single project wiki with everything inside is not worse than a multi-wiki setup. Add a global wiki only when (1) you have 2+ active projects sharing concepts, (2) you keep re-explaining patterns across project wikis, or (3) you have a long-running personal knowledge base that predates the project.
-
----
-
-## Install
-
-**Option 1 — git clone (recommended)**
-```bash
-git clone https://github.com/sametbrr/llm-wiki-manager ~/.claude/skills/llm-wiki-manager
-```
-
-**Option 2 — GitHub CLI** (requires gh CLI v2.90+)
-```bash
-gh skill install sametbrr/llm-wiki-manager
-```
-
-**Option 3 — .skill file**
-```bash
-curl -L -o llm-wiki-manager.skill \
-  https://github.com/sametbrr/llm-wiki-manager/releases/latest/download/llm-wiki-manager.skill
-unzip llm-wiki-manager.skill -d ~/.claude/skills/llm-wiki-manager
-```
-
-After installing, start a new Claude Code session. The skill loads automatically when relevant.
-
-**Works with:** Claude Code · OpenAI Codex · Cursor · Gemini CLI · Windsurf · any agent supporting the [agentskills.io](https://agentskills.io) standard.
+Full walkthroughs of all four scenarios in [`references/multi-wiki-routing.md`](references/multi-wiki-routing.md).
 
 ---
 
@@ -272,6 +280,7 @@ After installing, start a new Claude Code session. The skill loads automatically
 | Tool | Skills path | Notes |
 |---|---|---|
 | Claude Code | `~/.claude/skills/` or `.claude/skills/` | Global or project-level |
+| GitHub Copilot (VS Code) | `.vscode/skills/` | Agent mode required |
 | OpenAI Codex | `~/.codex/skills/` | Same SKILL.md format |
 | Cursor | `.cursor/skills/` | Project-level |
 | Gemini CLI | `~/.gemini/skills/` | |
@@ -288,5 +297,3 @@ After installing, start a new Claude Code session. The skill loads automatically
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-Inspired by Andrej Karpathy's LLM Wiki idea. Built with the [skill-creator](https://github.com/anthropics/skills) framework.
