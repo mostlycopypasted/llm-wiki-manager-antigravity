@@ -4,7 +4,7 @@ description: Build, maintain, and query a personal LLM-managed wiki — a markdo
 license: MIT
 metadata:
   author: sametbrr
-  version: "1.3.0"
+  version: "1.4.0"
   tags:
     - wiki
     - knowledge-management
@@ -43,9 +43,12 @@ When this skill triggers, identify which mode applies and read the matching refe
 | **Update** | "X is no longer right", "Smith 2024 supersedes Keys 1980", a new source invalidates a claim across **3+ existing pages** (not just one), user explicitly correcting a factual error they spotted | `references/update-workflow.md` |
 | **Multi-wiki** | "add this to my global wiki", "file to obsidian", "what does the global wiki say about X", "check my notes on Y", "promote this page to global", "lint both wikis", any operation that explicitly targets a second wiki location, or project's `CLAUDE.md` declares an `## External Wiki` section | `references/multi-wiki-routing.md` |
 | **Lint** | "health check", "audit the wiki", "find contradictions", "anything broken", periodic maintenance request | `references/lint-workflow.md` |
+| **Migrate** | "wiki güncelle", "upgrade wiki", "migrate wiki", "move the wiki to the new structure", schema-version mismatch detected | `references/migrate-workflow.md` |
 | **Schema-evolve** | "update CLAUDE.md", "we should always do X going forward", convention drift noticed during another mode | `references/schema-design-guide.md` |
 
 If multiple modes apply (e.g., user asks a question and wants the answer filed back), do them in sequence and log each one.
+
+**Step 0 — schema version check (every mode).** The wiki's `CLAUDE.md` frontmatter carries a `schema_version` stamp (unstamped = v1). If it is lower than the version this skill expects, offer one sentence before starting the requested work: *"This wiki is at schema v1, the skill expects v2 — run `scripts/migrate_wiki.py` first?"* Don't block the requested operation if the user declines; lint also reports the mismatch as a finding.
 
 **Update vs. Ingest's Disputes handling — important distinction.** Ingest already handles contradictions on a single page by adding a Disputes section. Switch to **Update mode** only when the new source's claim affects **multiple existing pages** — that is, when the same idea is paraphrased across the wiki and a single Disputes section won't keep the wiki internally consistent. If only one page is affected, stay in ingest. See `references/update-workflow.md` for the precise trigger checklist.
 
@@ -76,6 +79,8 @@ Consistent prefix matters — it makes the log greppable: `grep "^## \[" wiki/lo
 
 Use `scripts/update_index.py --path <wiki-root>`. The index is content-oriented: category, title, one-line summary, link. It is the LLM's primary navigation aid in future sessions when the wiki is large. Stale index = wiki that feels lost.
 
+**One page = one index entry.** A page never appears under multiple headings — grouping is by theme/category, not by tag (tag-grouped indexes duplicate every multi-tag page). Hub pages are marked with `★` after the link. The script warns when a page is about to be indexed in a second category.
+
 ### 4. Cross-reference aggressively.
 
 When ingesting a source about, say, a person who already has an entity page, **update that entity page** with the new information. Don't leave the connection implicit in the source summary. The whole value proposition is that connections are made eagerly, while context is fresh, not lazily at query time.
@@ -99,7 +104,7 @@ If a new source contradicts an existing claim on a wiki page, do **not** just re
 
 ### 7. Rewrite `wiki/hot.md` after every ingest.
 
-`wiki/hot.md` is a ~500-word hot cache: vault state, the latest ingest, open work items, tag inventory. It is the first file a cross-project reader sees. **Rewrite entirely — do not append.** If the file doesn't exist yet, create it from `assets/templates/hot.md.tmpl`. See `references/ingest-workflow.md` Step 10 for the rewrite checklist.
+`wiki/hot.md` is a ~500-word hot cache with exactly five sections: **State, Last ingest, Active themes, Open items, Conventions** (see `assets/templates/hot.md.tmpl`). It is the first file a cross-project reader sees. **Rewrite entirely — do not append.** Dated changelog blocks belong in `log.md`, never in hot. The tag inventory does NOT live here — the canonical tag list lives in the wiki's `CLAUDE.md`. See `references/ingest-workflow.md` Step 10 for the rewrite checklist; `lint_wiki.py` flags hot.md bloat.
 
 ### 8. The schema lives in `CLAUDE.md` and is updated when conventions change.
 
@@ -144,12 +149,13 @@ The `entities/`, `concepts/`, `sources/`, `notes/` split is the **default** sugg
 
 ## Bundled scripts
 
-All four are in `scripts/`. They are deliberately small, idempotent, and dependency-free (Python stdlib only).
+All five are in `scripts/`. They are deliberately small, idempotent, and dependency-free (Python stdlib only).
 
 - **`init_wiki.py`** — scaffold a new wiki. Creates `wiki/index.md`, `wiki/log.md`, `wiki/hot.md`, categorical subdirs, `CLAUDE.md`, `README.md`. On an **existing wiki** (already has `.md` files in `wiki/`) only adds `wiki/reports/` if missing — never imposes categorical dirs or overwrites files. Idempotent. See `references/bootstrap-workflow.md`.
 - **`append_log.py`** — append a log entry with the consistent `## [YYYY-MM-DD] action | title` prefix. Use after every ingest, query, update, and lint. Auto-detects `wiki/log.md` (standard) or `root/log.md` (flat layout). Always pass `--path <wiki-root>`. Valid actions: `ingest`, `query`, `update`, `lint`, `audit`, `bootstrap`, `schema-evolve`, `note`, `setup`, `restructure`.
 - **`update_index.py`** — add or update an entry under a category in `wiki/index.md`. Auto-detects `wiki/index.md` (standard) or `root/index.md` (flat layout). Preserves `#tag`-style category names. Always pass `--path <wiki-root>` and `--page-path <path-to-page>`. Idempotent on (category, title).
-- **`lint_wiki.py`** — scan for orphan pages, broken links, index/filesystem drift, log gaps. Supports both `[markdown](links)` and `[[wiki-links]]` for orphan and index-drift detection. `wiki/hot.md` excluded from orphan/stub/index checks. Auto-detects log and index in both `wiki/` and root layouts. **Default behavior**: writes report to `wiki/reports/lint-<today>.md`, then auto-tracks (adds Reports index entry, appends `lint | Health check` log entry). Same-day re-runs overwrite the report file. Override with `--stdout`, `--report PATH`, or `--no-track`. See `references/lint-workflow.md`.
+- **`lint_wiki.py`** — scan for orphan pages, broken links (markdown **and** `[[wiki-links]]`), index/filesystem drift, duplicate index entries, hot.md bloat, tag hygiene (single-use tags, over-tagged pages), ambiguous wiki-link slugs, log gaps, and schema-version drift. `wiki/hot.md` excluded from orphan/stub/index checks but gets its own health check. Auto-detects log and index in both `wiki/` and root layouts. **Default behavior**: writes report to `wiki/reports/lint-<today>.md`, then auto-tracks (adds Reports index entry, appends `lint | Health check` log entry). Same-day re-runs overwrite the report file. Override with `--stdout`, `--report PATH`, or `--no-track`; thresholds via `--stub-words`, `--log-gap-days`, `--hot-max-words`, `--max-tags`. See `references/lint-workflow.md`.
+- **`migrate_wiki.py`** — upgrade an existing wiki to the current structural conventions when a skill update changes them. Reads the `schema_version` stamp in the wiki's `CLAUDE.md` (unstamped = v1), shows a **dry-run** of the mechanical steps plus the manual (LLM) steps, applies with `--apply` only. Never touches `raw/`; logs every step as `restructure`; idempotent (re-running at the current version is a no-op). See `references/migrate-workflow.md`.
 
 Always prefer running these scripts to hand-editing `wiki/index.md` or `wiki/log.md`. They keep the format consistent across sessions and make the wiki greppable.
 
@@ -163,7 +169,7 @@ In `assets/templates/`. Use them as starting points; adapt freely:
 
 - `wiki-CLAUDE.md.tmpl` — the schema file dropped into a fresh wiki by `init_wiki.py`
 - `index.md.tmpl`, `log.md.tmpl` — initial scaffolding for `wiki/index.md` and `wiki/log.md`
-- `hot.md.tmpl` — initial scaffolding for `wiki/hot.md` (vault state, active knowledge, open items, tag inventory)
+- `hot.md.tmpl` — initial scaffolding for `wiki/hot.md` (five fixed sections: State, Last ingest, Active themes, Open items, Conventions)
 - `source-summary.md.tmpl` — one ingested source, full structure
 - `entity-page.md.tmpl` — a person, org, place, or product
 - `concept-page.md.tmpl` — an idea, framework, or term
@@ -173,6 +179,6 @@ In `assets/templates/`. Use them as starting points; adapt freely:
 
 ## When in doubt
 
-Read `references/philosophy.md` for the why and `references/architecture.md` for the what. Both are short. The workflow files are the how: `bootstrap-workflow.md`, `ingest-workflow.md`, `query-workflow.md`, `update-workflow.md`, `multi-wiki-routing.md`, `lint-workflow.md`, `schema-design-guide.md`, `teaching-mode.md`.
+Read `references/philosophy.md` for the why and `references/architecture.md` for the what. Both are short. The workflow files are the how: `bootstrap-workflow.md`, `ingest-workflow.md`, `query-workflow.md`, `update-workflow.md`, `multi-wiki-routing.md`, `lint-workflow.md`, `migrate-workflow.md`, `schema-design-guide.md`, `teaching-mode.md`.
 
 The single most important principle: **the LLM does the bookkeeping.** Cross-references, index updates, log entries, contradiction-flagging, stale-claim review, multi-wiki routing. That work is what makes the wiki compound. Skipping it because "the user didn't ask" is the failure mode this skill exists to prevent.

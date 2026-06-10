@@ -73,6 +73,10 @@ This contradicts [USDA's 1992 pyramid](../entities/usda.md#1992-food-pyramid).
 
 If the wiki is set up for Obsidian-style `[[wikilinks]]`, use those — check `CLAUDE.md`.
 
+**Maintain the `## Related` footer.** Every page ends with a `## Related` section: 2–5 links, each with a one-line *why* (`- [Page](path.md) — same program, parallel track`). When this ingest creates a meaningful connection between two pages, add it to both pages' Related footers. Don't mirror the links into a `related:` frontmatter field — the footer is the single source of truth.
+
+**Hub bookkeeping.** If a topic cluster reaches 3+ pages with this ingest, elect its most encompassing page as the hub: add a `## Pages in this cluster` section there, and mark it with `★` in the index (see `CLAUDE.md` hub rules).
+
 ### 7. Flag contradictions
 
 If the new source contradicts a claim on an existing page, **don't overwrite**. Add the new claim alongside the old one, mark both with their source, and note the conflict:
@@ -120,14 +124,17 @@ The log entry should be specific enough that "what did I do last week" returns u
 
 ### 10. Rewrite hot.md
 
-If the wiki has a `hot.md` (at `wiki/hot.md` or at the wiki root), **rewrite it entirely** — do not append. Update:
+If the wiki has a `hot.md` (at `wiki/hot.md` or at the wiki root), **rewrite it entirely** — do not append. The file has exactly five sections (see `assets/templates/hot.md.tmpl`), ~500 words total:
 
-- **Vault state:** page count, main themes.
-- **Active knowledge:** move the current ingest to the top of this section as a new bullet. Trim the oldest bullet if the section exceeds ~5 entries.
-- **Open work items:** add anything surfaced during ingest (a gap in coverage, an open question, a follow-up source worth finding).
-- **Tag inventory:** add any new tags introduced in this ingest.
+- **State:** one paragraph — page count, layout, active policies.
+- **Last ingest:** ONLY the most recent 1-2 operations; everything older lives in log.md. Never accumulate dated `## [...]` blocks here — those are log entries.
+- **Active themes:** one line per theme + link to its hub (`★`) page.
+- **Open items:** add anything surfaced during ingest (a gap in coverage, an open question, a follow-up source worth finding); remove resolved ones.
+- **Conventions:** 3-4 lines a cross-project reader must know; details live in CLAUDE.md.
 
-Rewriting (not appending) is important: `hot.md` is a cache, not a log. Its job is to give a future session — or a cross-project reader — an instant orientation. An append-only `hot.md` becomes too long to serve that purpose.
+If this ingest introduced a new tag, add it to the **canonical tag list in `CLAUDE.md`** (if it fits the tag policy) — the tag inventory does NOT live in hot.md.
+
+Rewriting (not appending) is important: `hot.md` is a cache, not a log. Its job is to give a future session — or a cross-project reader — an instant orientation. An append-only `hot.md` becomes too long to serve that purpose; `lint_wiki.py` flags it when it bloats.
 
 ### 11. Brief recap to the user
 

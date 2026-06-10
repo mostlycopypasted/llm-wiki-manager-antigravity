@@ -120,6 +120,23 @@ Anything specific about how this wiki gets used. Per-wiki preferences for ingest
 - An entity earns its own page once mentioned in 2+ sources. Until then it lives in source summaries.
 ```
 
+## Hub pages (MOC)
+
+A hub is **not a folder — it's a normal wiki page** that serves as a cluster's entry point (Obsidian calls this a Map of Content). Rules to write into the schema:
+
+- A topic cluster with **3+ pages** elects its most encompassing page as the hub.
+- The hub carries a `## Pages in this cluster` section: one line per member page + short description.
+- Mark hubs with `★` in the index. Query navigation becomes **short index → hub → page** — far cheaper than scanning the whole index.
+- Fewer than 3 pages = no hub yet. Promote when the cluster grows; if a theme later justifies a real folder (~10+ pages), the tag-promotion rule takes over.
+
+## Tag policy
+
+Tags are classifiers, not keywords. Without a policy they inflate fast (a real vault hit ~6 tags/page with mostly single-use tags). Write into the schema:
+
+- **Max 4 tags per page.** A tag must apply to **2+ pages** to enter frontmatter — single-use keywords belong in the page body.
+- **Canonical tag list lives in the wiki's `CLAUDE.md`** (not in hot.md). New tag = conscious decision: add to the list first, then use.
+- **Merge synonyms** (`setup`/`kurulum`, `api`/`api-reference`) — `lint_wiki.py` surfaces single-use tags and over-tagged pages as findings.
+
 ## How the schema evolves
 
 The schema is **not written once and frozen**. It evolves as the wiki grows and conventions emerge.

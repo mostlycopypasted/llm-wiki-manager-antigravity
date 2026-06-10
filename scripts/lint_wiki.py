@@ -49,8 +49,61 @@ INDEX_WIKILINK_PATTERN = re.compile(
 )
 
 
+# Schema version the bundled templates/conventions correspond to.
+# Kept in sync with migrate_wiki.py's registry.
+try:
+    from migrate_wiki import EXPECTED_SCHEMA_VERSION
+except ImportError:
+    EXPECTED_SCHEMA_VERSION = 2
+
+
 def is_external(url: str) -> bool:
     return url.startswith(("http://", "https://", "mailto:", "ftp://"))
+
+
+def parse_frontmatter(text: str) -> dict | None:
+    """
+    Minimal YAML frontmatter parser (stdlib only). Supports `key: value`,
+    inline lists `tags: [a, b]`, and block lists:
+        tags:
+          - a
+          - b
+    Returns None when there is no frontmatter or it can't be parsed.
+    """
+    if not text.startswith("---\n"):
+        return None
+    end = text.find("\n---", 4)
+    if end == -1:
+        return None
+    body = text[4:end]
+    data: dict = {}
+    current_list_key: str | None = None
+    try:
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if stripped.startswith("- ") and current_list_key:
+                data[current_list_key].append(stripped[2:].strip().strip("'\""))
+                continue
+            if ":" not in stripped:
+                return None
+            key, _, value = stripped.partition(":")
+            key = key.strip()
+            value = value.split("#", 1)[0].strip()
+            if value == "":
+                data[key] = []
+                current_list_key = key
+            elif value.startswith("[") and value.endswith("]"):
+                items = [v.strip().strip("'\"") for v in value[1:-1].split(",")]
+                data[key] = [v for v in items if v]
+                current_list_key = None
+            else:
+                data[key] = value.strip("'\"")
+                current_list_key = None
+    except Exception:
+        return None
+    return data
 
 
 def is_anchor_only(url: str) -> bool:
@@ -83,7 +136,8 @@ def collect_links(md_path: Path, wiki_dir: Path) -> list[tuple[str, Path]]:
     """
     Returns list of (raw_url, resolved_path) for all internal links in the file.
     Handles both standard markdown links [text](url) and Obsidian [[slug]] wiki-links.
-    Unresolved wiki-links (slug not found) are silently skipped.
+    Unresolved wiki-links resolve to the nominal path wiki/<slug>.md, which does
+    not exist — so check_broken_links reports them instead of skipping silently.
     """
     text = md_path.read_text(encoding="utf-8", errors="replace")
     out: list[tuple[str, Path]] = []
@@ -103,8 +157,34 @@ def collect_links(md_path: Path, wiki_dir: Path) -> list[tuple[str, Path]]:
         matches = list(wiki_dir.rglob(f"{slug}.md"))
         if matches:
             out.append((f"[[{slug}]]", matches[0].resolve()))
+        else:
+            out.append((f"[[{slug}]]", (wiki_dir / f"{slug}.md").resolve()))
 
     return out
+
+
+def check_wikilink_collisions(md_files: list[Path], wiki_dir: Path) -> list[dict]:
+    """
+    Wiki-link slugs that resolve to more than one file under wiki/.
+    The first match wins at link time, so collisions are silent ambiguity.
+    """
+    collisions: list[dict] = []
+    seen: set[str] = set()
+    for md in md_files:
+        text = md.read_text(encoding="utf-8", errors="replace")
+        for m in WIKILINK_PATTERN.finditer(text):
+            slug = m.group(1).strip()
+            if slug in seen:
+                continue
+            matches = list(wiki_dir.rglob(f"{slug}.md"))
+            if len(matches) > 1:
+                seen.add(slug)
+                collisions.append({
+                    "slug": slug,
+                    "from": str(md),
+                    "matches": [str(p) for p in matches],
+                })
+    return collisions
 
 
 def check_broken_links(
@@ -216,6 +296,145 @@ def check_index_drift(
     return missing, dead
 
 
+def check_index_duplicates(wiki_dir: Path) -> list[dict]:
+    """
+    Index entries pointing at the same file more than once (usually a page
+    listed under several categories). One page = one index entry.
+    """
+    for candidate in [wiki_dir / "index.md", wiki_dir.parent / "index.md"]:
+        if candidate.exists():
+            index_md = candidate
+            index_dir = candidate.parent
+            break
+    else:
+        return []
+
+    occurrences: dict[Path, list[str]] = defaultdict(list)
+    category = "(no category)"
+    for line in index_md.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("## "):
+            category = line[3:].strip()
+            continue
+        m = INDEX_LINK_PATTERN.match(line)
+        if m:
+            url = m.group(2)
+            if is_external(url) or is_anchor_only(url):
+                continue
+            target = (index_dir / url.split("#", 1)[0]).resolve()
+            occurrences[target].append(category)
+            continue
+        wm = INDEX_WIKILINK_PATTERN.match(line)
+        if wm:
+            slug = wm.group(1).strip()
+            matches = list(wiki_dir.rglob(f"{slug}.md"))
+            target = matches[0].resolve() if matches else (wiki_dir / f"{slug}.md").resolve()
+            occurrences[target].append(category)
+
+    return [
+        {"target": str(target), "count": len(cats), "categories": cats}
+        for target, cats in occurrences.items()
+        if len(cats) > 1
+    ]
+
+
+def check_hot_health(wiki_dir: Path, max_words: int) -> list[dict]:
+    """
+    hot.md is a ~500-word cache, rewritten on every ingest — not a log.
+    Flags: word count over threshold, and 3+ dated `## [YYYY-MM-DD]` blocks
+    (a sign the file is accumulating changelog entries that belong in log.md).
+    """
+    for candidate in [wiki_dir / "hot.md", wiki_dir.parent / "hot.md"]:
+        if candidate.exists():
+            hot_path = candidate
+            break
+    else:
+        return []
+
+    text = hot_path.read_text(encoding="utf-8", errors="replace")
+    body = text
+    if body.startswith("---\n"):
+        end = body.find("\n---", 4)
+        if end != -1:
+            body = body[end + 4:]
+
+    findings: list[dict] = []
+    words = len(body.split())
+    if words > max_words:
+        findings.append({
+            "path": str(hot_path),
+            "issue": f"{words} words (threshold {max_words}) — rewrite, don't append",
+        })
+    dated_blocks = sum(
+        1 for line in body.splitlines() if LOG_DATE_PATTERN.match(line)
+    )
+    if dated_blocks >= 3:
+        findings.append({
+            "path": str(hot_path),
+            "issue": (
+                f"{dated_blocks} dated `## [...]` blocks — hot.md is turning into "
+                "a second log; move them to log.md and rewrite hot.md"
+            ),
+        })
+    return findings
+
+
+def check_tag_health(
+    md_files: list[Path], max_tags: int,
+) -> tuple[list[dict], list[dict], int]:
+    """
+    Frontmatter tag hygiene:
+      - single_use: tags appearing on exactly one page (keywords, not classifiers)
+      - overtagged: pages with more than max_tags tags
+      - unparsed: count of files whose frontmatter could not be parsed (skipped)
+    """
+    tag_pages: dict[str, list[Path]] = defaultdict(list)
+    overtagged: list[dict] = []
+    unparsed = 0
+    for md in md_files:
+        text = md.read_text(encoding="utf-8", errors="replace")
+        if not text.startswith("---\n"):
+            continue
+        fm = parse_frontmatter(text)
+        if fm is None:
+            unparsed += 1
+            continue
+        tags = fm.get("tags")
+        if not isinstance(tags, list):
+            continue
+        for tag in tags:
+            tag_pages[tag].append(md)
+        if len(tags) > max_tags:
+            overtagged.append({"path": str(md), "count": len(tags), "tags": tags})
+
+    single_use = [
+        {"tag": tag, "page": str(pages[0])}
+        for tag, pages in sorted(tag_pages.items())
+        if len(pages) == 1
+    ]
+    return single_use, overtagged, unparsed
+
+
+def check_schema_version(root: Path) -> dict | None:
+    """
+    Compare the wiki CLAUDE.md's schema_version stamp against what this skill
+    version expects. Unstamped wikis count as v1. Returns a finding dict when
+    the wiki is behind, else None.
+    """
+    claude_md = root / "CLAUDE.md"
+    current = 1
+    if claude_md.exists():
+        fm = parse_frontmatter(claude_md.read_text(encoding="utf-8", errors="replace"))
+        if fm and str(fm.get("schema_version", "")).isdigit():
+            current = int(fm["schema_version"])
+    if current < EXPECTED_SCHEMA_VERSION:
+        return {
+            "current": current,
+            "expected": EXPECTED_SCHEMA_VERSION,
+            "hint": "run scripts/migrate_wiki.py --path <wiki-root> (dry-run) to see the upgrade steps",
+        }
+    return None
+
+
 def check_stub_pages(md_files: list[Path], min_words: int) -> list[dict]:
     """Pages with fewer than min_words of body text (excluding frontmatter)."""
     stubs: list[dict] = []
@@ -297,8 +516,16 @@ def render_report(results: dict, root: Path, thresholds: dict) -> str:
         + len(results["index_missing"])
         + len(results["stubs"])
         + len(results["slug_mismatch"])
+        + len(results["index_duplicates"])
+        + len(results["hot_health"])
+        + len(results["overtagged"])
+        + len(results["wikilink_collisions"])
     )
-    suggestion_count = len(results["log_gaps"])
+    suggestion_count = (
+        len(results["log_gaps"])
+        + len(results["single_use_tags"])
+        + (1 if results["schema_version"] else 0)
+    )
 
     lines.append(
         f"Summary: **{block_count} block**, **{quality_count} quality**, "
@@ -313,7 +540,8 @@ def render_report(results: dict, root: Path, thresholds: dict) -> str:
         if results["broken_links"]:
             lines.append(f"### Broken links ({len(results['broken_links'])})\n")
             lines.append(
-                "Markdown links pointing to files that don't exist inside the wiki.\n"
+                "Markdown links and `[[wiki-links]]` pointing to files that don't "
+                "exist inside the wiki.\n"
             )
             for entry in results["broken_links"]:
                 lines.append(
@@ -366,6 +594,52 @@ def render_report(results: dict, root: Path, thresholds: dict) -> str:
             for p in results["slug_mismatch"]:
                 lines.append(f"- `{p}`")
             lines.append("")
+        if results["index_duplicates"]:
+            lines.append(
+                f"### Duplicate index entries ({len(results['index_duplicates'])})\n"
+            )
+            lines.append(
+                "The same page is listed more than once in the index. "
+                "One page = one entry; pick the best category and drop the rest.\n"
+            )
+            for d in results["index_duplicates"]:
+                cats = ", ".join(d["categories"])
+                lines.append(f"- `{d['target']}` — {d['count']} entries ({cats})")
+            lines.append("")
+        if results["hot_health"]:
+            lines.append(f"### hot.md health ({len(results['hot_health'])})\n")
+            lines.append(
+                "hot.md is a ~500-word cache, rewritten entirely on every ingest.\n"
+            )
+            for h in results["hot_health"]:
+                lines.append(f"- `{h['path']}`: {h['issue']}")
+            lines.append("")
+        if results["overtagged"]:
+            lines.append(
+                f"### Pages over {thresholds['max_tags']} tags "
+                f"({len(results['overtagged'])})\n"
+            )
+            lines.append(
+                "Tags are classifiers, not keywords — trim to the canonical list "
+                "in CLAUDE.md.\n"
+            )
+            for t in results["overtagged"]:
+                lines.append(f"- `{t['path']}` ({t['count']} tags: {', '.join(t['tags'])})")
+            lines.append("")
+        if results["wikilink_collisions"]:
+            lines.append(
+                f"### Ambiguous wiki-link slugs ({len(results['wikilink_collisions'])})\n"
+            )
+            lines.append(
+                "These `[[slugs]]` match more than one file; the first match wins "
+                "silently. Rename to unambiguous slugs.\n"
+            )
+            for c in results["wikilink_collisions"]:
+                lines.append(
+                    f"- `[[{c['slug']}]]` (first seen in `{c['from']}`): "
+                    + ", ".join(f"`{m}`" for m in c["matches"])
+                )
+            lines.append("")
 
     # SUGGESTIONS
     lines.append("## Suggestions (informational)\n")
@@ -380,6 +654,30 @@ def render_report(results: dict, root: Path, thresholds: dict) -> str:
             for g in results["log_gaps"]:
                 lines.append(f"- {g['from']} → {g['to']} ({g['days']} days)")
             lines.append("")
+        if results["single_use_tags"]:
+            lines.append(
+                f"### Single-use tags ({len(results['single_use_tags'])})\n"
+            )
+            lines.append(
+                "A tag on exactly one page is a keyword, not a classifier — "
+                "move it to the page body or merge it into a canonical tag.\n"
+            )
+            for s in results["single_use_tags"]:
+                lines.append(f"- `{s['tag']}` (only on `{s['page']}`)")
+            lines.append("")
+        if results["schema_version"]:
+            sv = results["schema_version"]
+            lines.append("### Wiki schema behind skill version\n")
+            lines.append(
+                f"- Wiki is at schema v{sv['current']}, skill expects "
+                f"v{sv['expected']} — {sv['hint']}"
+            )
+            lines.append("")
+    if results.get("tag_unparsed"):
+        lines.append(
+            f"*Note: frontmatter could not be parsed in "
+            f"{results['tag_unparsed']} file(s); tag checks skipped them.*\n"
+        )
 
     # Reminder of out-of-scope checks
     lines.append("---\n")
@@ -475,6 +773,14 @@ def main() -> int:
         "--log-gap-days", type=int, default=30,
         help="Log gaps longer than this many days are flagged (default: 30).",
     )
+    parser.add_argument(
+        "--hot-max-words", type=int, default=700,
+        help="hot.md over this many body words is flagged (default: 700).",
+    )
+    parser.add_argument(
+        "--max-tags", type=int, default=4,
+        help="Pages with more frontmatter tags than this are flagged (default: 4).",
+    )
     args = parser.parse_args()
 
     root = Path(args.path).expanduser().resolve()
@@ -495,6 +801,11 @@ def main() -> int:
     stubs = check_stub_pages(md_files, args.stub_words)
     log_gaps = check_log_gaps(wiki_dir, args.log_gap_days)
     slug_mismatch = check_slug_conventions(md_files)
+    index_duplicates = check_index_duplicates(wiki_dir)
+    hot_health = check_hot_health(wiki_dir, args.hot_max_words)
+    single_use_tags, overtagged, tag_unparsed = check_tag_health(md_files, args.max_tags)
+    wikilink_collisions = check_wikilink_collisions(md_files, wiki_dir)
+    schema_version = check_schema_version(root)
 
     results = {
         "broken_links": broken,
@@ -505,18 +816,33 @@ def main() -> int:
         "stubs": stubs,
         "log_gaps": log_gaps,
         "slug_mismatch": slug_mismatch,
+        "index_duplicates": index_duplicates,
+        "hot_health": hot_health,
+        "single_use_tags": single_use_tags,
+        "overtagged": overtagged,
+        "tag_unparsed": tag_unparsed,
+        "wikilink_collisions": wikilink_collisions,
+        "schema_version": schema_version,
     }
 
     report = render_report(
         results, root,
-        thresholds={"stub_words": args.stub_words, "log_gap_days": args.log_gap_days},
+        thresholds={
+            "stub_words": args.stub_words,
+            "log_gap_days": args.log_gap_days,
+            "max_tags": args.max_tags,
+        },
     )
 
     block_total = len(broken) + len(raw_missing) + len(index_dead)
     quality_count = (
         len(orphans) + len(index_missing) + len(stubs) + len(slug_mismatch)
+        + len(index_duplicates) + len(hot_health) + len(overtagged)
+        + len(wikilink_collisions)
     )
-    suggestion_count = len(log_gaps)
+    suggestion_count = (
+        len(log_gaps) + len(single_use_tags) + (1 if schema_version else 0)
+    )
 
     # Decide where the report goes.
     if args.stdout:

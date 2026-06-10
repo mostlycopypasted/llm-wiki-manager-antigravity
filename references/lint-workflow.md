@@ -25,6 +25,8 @@ Useful flags:
 - `--no-track` — write the report file but skip the index/log updates.
 - `--stub-words 30` — change the threshold for stub detection (default 50).
 - `--log-gap-days 60` — change the threshold for log-gap warnings (default 30).
+- `--hot-max-words 900` — change the hot.md bloat threshold (default 700).
+- `--max-tags 5` — change the per-page frontmatter tag limit (default 4).
 
 The report is markdown, organized by severity (block / quality / suggestion). Past reports accumulate in `wiki/reports/`, giving you a longitudinal view of wiki health — "how was the wiki last month vs now". Git history of `wiki/reports/` is the audit trail.
 
@@ -93,7 +95,7 @@ The user will rarely ask for it on schedule. It's worth proactively suggesting a
 
 | Check | What it does | Severity |
 |---|---|---|
-| `broken_links` | Markdown links to non-existent files within the wiki | block |
+| `broken_links` | Markdown links **and `[[wiki-links]]`** to non-existent files within the wiki | block |
 | `index_missing` | Pages that exist but aren't in `wiki/index.md` (reads both `[markdown](links)` and `[[wiki-links]]` in the index) | quality |
 | `index_dead` | Index entries pointing to deleted files | block |
 | `orphans` | Pages with zero inbound links (checks both `[markdown](links)` and `[[wiki-links]]`) | quality |
@@ -101,8 +103,16 @@ The user will rarely ask for it on schedule. It's worth proactively suggesting a
 | `raw_missing` | Wiki pages citing `raw/` files that don't exist | block |
 | `log_gaps` | Stretches of >30 days with no log entry, in an otherwise active wiki | suggestion |
 | `slug_mismatch` | Filenames not conforming to `CLAUDE.md` slug convention | quality |
+| `index_duplicates` | The same page listed more than once in the index (one page = one entry) | quality |
+| `hot_health` | `hot.md` over the word threshold or accumulating dated `## [...]` changelog blocks | quality |
+| `overtagged` | Pages with more frontmatter tags than the limit | quality |
+| `single_use_tags` | Tags appearing on exactly one page (keywords, not classifiers) | suggestion |
+| `wikilink_collisions` | `[[slugs]]` matching more than one file (silent ambiguity) | quality |
+| `schema_version` | Wiki's `schema_version` stamp behind what the skill expects — points to `migrate_wiki.py` | suggestion |
 
-The thresholds (50 words, 30 days) are tunable via flags — see `--help`.
+The thresholds (50 words, 30 days, 700 hot words, 4 tags) are tunable via flags — see `--help`.
+
+**Consciously ignored findings:** if the wiki's `CLAUDE.md` has a "Lint exceptions" section, findings on the files/slugs listed there are expected — report them but don't propose fixes. When the user repeatedly dismisses the same finding, propose adding it to that section (schema-evolve).
 
 ## What the lint script does not catch
 
