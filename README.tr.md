@@ -29,7 +29,7 @@ mkdir ~/research/konum && cd ~/research/konum && claude
 
 RAG'dan farklı olarak — LLM'nin her sorguda ham belgelerden cevap yeniden keşfettiği yaklaşım — bu pattern LLM'nin ham kaynakları kalıcı, birbiriyle bağlantılı bir markdown wiki'sine **derlemesini** sağlar. Her yeni kaynak mevcut sayfaları zenginleştirir. Çapraz referanslar hevesle kurulur. Çelişkiler işaretlenir. Bilgi zamanla birikerek büyür.
 
-[Karpathy'nin LLM Wiki pattern'ini](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 8 çalışma modu (çok-wiki yönlendirme dahil), 4 idempotent Python scripti, 8 sayfa şablonu ve 9 referans belgeyle tam bir Claude Code skill'i olarak uygular.
+[Karpathy'nin LLM Wiki pattern'ini](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 8 çalışma modu (çok-wiki yönlendirme dahil), 5 idempotent Python scripti, 8 sayfa şablonu ve 11 referans belgeyle tam bir Claude Code skill'i olarak uygular.
 
 ```
 Bu pattern olmadan          Bu pattern ile
@@ -44,7 +44,7 @@ Sorgu 3 → 50 belge yeniden okunur    Sorgu 3 → güncel wiki okunur (çelişk
 ## Gereksinimler
 
 - Claude Code veya herhangi bir [agentskills.io](https://agentskills.io) uyumlu agent
-- Python 3.9+ (yalnızca stdlib, dahil 4 script için — pip kurulumu gerekmez)
+- Python 3.9+ (yalnızca stdlib, dahil 5 script için — pip kurulumu gerekmez)
 
 ---
 
@@ -165,6 +165,7 @@ Wiki sayfalarını neredeyse hiç elinizle yazmazsınız. LLM kayıt işlemlerin
 | `scripts/append_log.py` | `log.md`'ye `## [YYYY-MM-DD] eylem \| başlık` girişi ekler. Esnek log yolu tespitini destekler. |
 | `scripts/update_index.py` | `index.md`'de bir kategori altına giriş ekler veya günceller. (kategori, başlık) çiftine göre upsert yapar. |
 | `scripts/lint_wiki.py` | Sağlık kontrolü. Hem standart markdown hem Obsidian wiki-link (`[[...]]`) formatında yetim sayfaları ve indeks kaymasını tespit eder. Varsayılan: `wiki/reports/lint-<bugün>.md` yazar ve otomatik takip eder. |
+| `scripts/migrate_wiki.py` | Şema yükseltme (v1 → v2). `index.md`'yi tekilleştirir, `hot.md`'deki tarihli changelog bloklarını `log.md`'ye taşır, şema sürümünü damgalar. İdempotent. |
 
 ### Şablonlar
 
@@ -181,8 +182,8 @@ Wiki sayfalarını neredeyse hiç elinizle yazmazsınız. LLM kayıt işlemlerin
 
 ### Referans Belgeler
 
-`references/` içinde dokuz ayrıntılı iş akışı belgesi:
-`philosophy.md` · `architecture.md` · `bootstrap-workflow.md` · `ingest-workflow.md` · `query-workflow.md` · `update-workflow.md` · `lint-workflow.md` · `schema-design-guide.md` · `multi-wiki-routing.md` · `teaching-mode.md`
+`references/` içinde on bir ayrıntılı iş akışı belgesi:
+`philosophy.md` · `architecture.md` · `bootstrap-workflow.md` · `ingest-workflow.md` · `query-workflow.md` · `update-workflow.md` · `lint-workflow.md` · `migrate-workflow.md` · `schema-design-guide.md` · `multi-wiki-routing.md` · `teaching-mode.md`
 
 Skill bunları seçici olarak okur — sizin okumanıza gerek yok. Her mod için LLM'e derinlik sağlamak amacıyla buradalar.
 

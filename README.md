@@ -29,7 +29,7 @@ mkdir ~/research/my-topic && cd ~/research/my-topic && claude
 
 Instead of RAG — where the LLM rediscovers answers from raw documents on every query — this pattern has the LLM **compile** raw sources into a persistent, interlinked markdown wiki. Each new source enriches existing pages. Cross-references are built eagerly. Contradictions are flagged. Knowledge compounds over time.
 
-Implements [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) as a full Claude Code skill with 8 operating modes (including multi-wiki routing), 4 idempotent Python scripts, 8 page templates, and 9 reference documents.
+Implements [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) as a full Claude Code skill with 8 operating modes (including multi-wiki routing), 5 idempotent Python scripts, 8 page templates, and 11 reference documents.
 
 ```
 Without this pattern          With this pattern
@@ -44,7 +44,7 @@ Query 3 → re-read 50 docs     Query 3 → read updated wiki (contradictions al
 ## Requirements
 
 - Claude Code or any [agentskills.io](https://agentskills.io)-compatible agent
-- Python 3.9+ (stdlib only, for the 4 included scripts — no pip install needed)
+- Python 3.9+ (stdlib only, for the 5 included scripts — no pip install needed)
 
 ---
 
@@ -165,6 +165,7 @@ You almost never write wiki pages by hand. The LLM does the bookkeeping — that
 | `scripts/append_log.py` | Append a `## [YYYY-MM-DD] action \| title` entry to `log.md`. Supports flexible log path detection. |
 | `scripts/update_index.py` | Add or update an entry under a category in `index.md`. Upserts by (category, title). Flexible index path detection. |
 | `scripts/lint_wiki.py` | Health check. Detects orphan pages and index drift in both standard markdown and Obsidian wiki-link (`[[...]]`) format. Default: writes `wiki/reports/lint-<today>.md` and auto-tracks. Run `--stdout` for terminal output. |
+| `scripts/migrate_wiki.py` | Schema upgrade (v1 → v2). Deduplicates `index.md`, moves dated changelog blocks from `hot.md` into `log.md`, stamps the schema version. Idempotent. |
 
 ### Templates
 
@@ -181,8 +182,8 @@ You almost never write wiki pages by hand. The LLM does the bookkeeping — that
 
 ### Reference docs
 
-Nine detailed workflow documents in `references/`:
-`philosophy.md` · `architecture.md` · `bootstrap-workflow.md` · `ingest-workflow.md` · `query-workflow.md` · `update-workflow.md` · `lint-workflow.md` · `schema-design-guide.md` · `multi-wiki-routing.md` · `teaching-mode.md`
+Eleven detailed workflow documents in `references/`:
+`philosophy.md` · `architecture.md` · `bootstrap-workflow.md` · `ingest-workflow.md` · `query-workflow.md` · `update-workflow.md` · `lint-workflow.md` · `migrate-workflow.md` · `schema-design-guide.md` · `multi-wiki-routing.md` · `teaching-mode.md`
 
 The skill reads these selectively — you don't need to. They're there to give the LLM depth on each mode.
 

@@ -204,7 +204,9 @@ def move_hot_changelog(root: Path, apply: bool) -> str:
             additions.append(heading + ("\n" + body if body else ""))
         new_log = log_text + "\n" + "\n\n".join(additions) + "\n"
         log_md.write_text(new_log, encoding="utf-8")
-        if all(a.splitlines()[0] in new_log for a in additions):
+        # Verify the full block content landed on disk before deleting from hot.
+        written = log_md.read_text(encoding="utf-8", errors="replace")
+        if all(a in written for a in additions):
             hot_md.write_text("\n".join(kept).rstrip() + "\n", encoding="utf-8")
         else:
             return "ERROR: log verification failed — hot.md left untouched"

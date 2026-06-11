@@ -50,7 +50,9 @@ INDEX_WIKILINK_PATTERN = re.compile(
 
 
 # Schema version the bundled templates/conventions correspond to.
-# Kept in sync with migrate_wiki.py's registry.
+# Kept in sync with migrate_wiki.py's registry. The script can be invoked from
+# any cwd (e.g. via subprocess), so make the script dir importable first.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     from migrate_wiki import EXPECTED_SCHEMA_VERSION
 except ImportError:
@@ -101,7 +103,7 @@ def parse_frontmatter(text: str) -> dict | None:
             else:
                 data[key] = value.strip("'\"")
                 current_list_key = None
-    except Exception:
+    except (ValueError, KeyError, AttributeError, IndexError):
         return None
     return data
 
