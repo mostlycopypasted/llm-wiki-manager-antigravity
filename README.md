@@ -13,7 +13,7 @@ An Agent Code skill for building and maintaining a personal LLM-managed wiki —
 ## Quick Start
 
 ```bash
-git clone https://github.com/sametbrr/llm-wiki-manager ~/.agents/skills/llm-wiki-manager
+git clone https://github.com/mostlycopypasted/llm-wiki-manager-antigravity/ ~/.gemini/skills/llm-wiki-manager
 ```
 
 Start a new AGENTS Code session in your research folder:
@@ -50,9 +50,9 @@ Query 3 → re-read 50 docs     Query 3 → read updated wiki (contradictions al
 
 ## Installation
 
-**Option 1 — git clone (recommended)**
+**Option 1 — git clone (recommended, global installation for gemini)**
 ```bash
-git clone https://github.com/sametbrr/llm-wiki-manager ~/.agents/skills/llm-wiki-manager
+git clone https://github.com/mostlycopypasted/llm-wiki-manager-antigravity/ ~/.gemini/skills/llm-wiki-manager
 ```
 
 **Option 2 — GitHub CLI** (requires gh CLI v2.90+)
