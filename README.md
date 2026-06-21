@@ -4,7 +4,7 @@
 
 # LLM Wiki Manager
 
-A Claude Code skill for building and maintaining a personal LLM-managed wiki — a persistent, compounding knowledge base where the LLM does all the writing, cross-referencing, and bookkeeping while you curate sources and ask questions.
+An Agent Code skill for building and maintaining a personal LLM-managed wiki — a persistent, compounding knowledge base where the LLM does all the writing, cross-referencing, and bookkeeping while you curate sources and ask questions.
 
 > 🇹🇷 Türkçe için [README.tr.md](README.tr.md)
 
