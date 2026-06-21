@@ -418,14 +418,14 @@ def check_tag_health(
 
 def check_schema_version(root: Path) -> dict | None:
     """
-    Compare the wiki CLAUDE.md's schema_version stamp against what this skill
+    Compare the wiki AGENTS.md's schema_version stamp against what this skill
     version expects. Unstamped wikis count as v1. Returns a finding dict when
     the wiki is behind, else None.
     """
-    claude_md = root / "CLAUDE.md"
+    agent_md = root / "AGENTS.md"
     current = 1
-    if claude_md.exists():
-        fm = parse_frontmatter(claude_md.read_text(encoding="utf-8", errors="replace"))
+    if agent_md.exists():
+        fm = parse_frontmatter(agent_md.read_text(encoding="utf-8", errors="replace"))
         if fm and str(fm.get("schema_version", "")).isdigit():
             current = int(fm["schema_version"])
     if current < EXPECTED_SCHEMA_VERSION:
@@ -623,7 +623,7 @@ def render_report(results: dict, root: Path, thresholds: dict) -> str:
             )
             lines.append(
                 "Tags are classifiers, not keywords — trim to the canonical list "
-                "in CLAUDE.md.\n"
+                "in AGENTS.md.\n"
             )
             for t in results["overtagged"]:
                 lines.append(f"- `{t['path']}` ({t['count']} tags: {', '.join(t['tags'])})")
@@ -685,7 +685,7 @@ def render_report(results: dict, root: Path, thresholds: dict) -> str:
     lines.append("---\n")
     lines.append("**Not checked here (LLM responsibility):** stale claims, ")
     lines.append("unflagged contradictions, missing pages on cross-cutting entities, ")
-    lines.append("schema drift between `CLAUDE.md` and actual practice.\n")
+    lines.append("schema drift between `AGENTS.md` and actual practice.\n")
     return "\n".join(lines)
 
 

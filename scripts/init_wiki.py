@@ -12,7 +12,7 @@ Usage:
 
 Layout produced:
     <root>/
-    ├── CLAUDE.md          # schema, written from template (only if missing)
+    ├── AGENTS.md          # schema, written from template (only if missing)
     ├── README.md          # human-facing overview (only if missing)
     ├── raw/.gitkeep
     └── wiki/
@@ -90,18 +90,18 @@ def init_wiki(root: Path, name: str, topic: str) -> tuple[list[str], list[str]]:
         for sub in ("sources", "entities", "concepts", "notes", "reports"):
             ensure_dir_with_gitkeep(wiki_dir / sub, created=created, skipped=skipped)
 
-    # CLAUDE.md (schema)
-    claude_template = TEMPLATES_DIR / "wiki-CLAUDE.md.tmpl"
-    if claude_template.exists():
+    # AGENTS.md (schema)
+    agent_template = TEMPLATES_DIR / "wiki-AGENTS.md.tmpl"
+    if agent_template.exists():
         content = render_template(
-            claude_template,
+            agent_template,
             {"WIKI_NAME": name, "TOPIC": topic},
         )
-        write_if_missing(root / "CLAUDE.md", content, created=created, skipped=skipped)
+        write_if_missing(root / "AGENTS.md", content, created=created, skipped=skipped)
     else:
         # Fallback minimal schema if template is missing.
         write_if_missing(
-            root / "CLAUDE.md",
+            root / "AGENTS.md",
             f"# {name}\n\n## Purpose\n\n{topic}\n",
             created=created, skipped=skipped,
         )
@@ -111,11 +111,11 @@ def init_wiki(root: Path, name: str, topic: str) -> tuple[list[str], list[str]]:
         f"# {name}\n\n"
         f"{topic}\n\n"
         "This is an LLM-managed wiki. The LLM (Claude) owns `wiki/`. "
-        "I curate sources in `raw/`. The schema is in `CLAUDE.md`.\n\n"
+        "I curate sources in `raw/`. The schema is in `AGENTS.md`.\n\n"
         "## Layout\n\n"
         "- `raw/` — source documents I've collected\n"
         "- `wiki/` — LLM-generated pages\n"
-        "- `CLAUDE.md` — schema for the LLM\n"
+        "- `AGENTS.md` — schema for the LLM\n"
     )
     write_if_missing(root / "README.md", readme, created=created, skipped=skipped)
 
@@ -166,7 +166,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--name", default=None,
-        help="Wiki name. Used in CLAUDE.md and README.md.",
+        help="Wiki name. Used in AGENTS.md and README.md.",
     )
     parser.add_argument(
         "--topic", default=None,
@@ -181,7 +181,7 @@ def main() -> int:
     root = Path(args.path).expanduser().resolve()
 
     name = args.name or root.name
-    topic = args.topic or "<edit CLAUDE.md to describe this wiki>"
+    topic = args.topic or "<edit AGENTS.md to describe this wiki>"
 
     created, skipped = init_wiki(root, name, topic)
 
@@ -198,7 +198,7 @@ def main() -> int:
     print(f"\nWiki ready at: {root}")
     if created:
         print("Next steps:")
-        print("  1. Edit CLAUDE.md to refine the schema for your topic.")
+        print("  1. Edit AGENTS.md to refine the schema for your topic.")
         print("  2. Drop your first source into raw/.")
         print("  3. Ask Claude to ingest it.")
     else:

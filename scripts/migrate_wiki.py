@@ -9,7 +9,7 @@ semantic steps (tag consolidation, theme-grouped index rewrite, hub election,
 Related footers) are LLM work described in references/migrate-workflow.md and
 are listed in the dry-run output as manual steps.
 
-The wiki's CLAUDE.md frontmatter carries a `schema_version` stamp. An
+The wiki's AGENTS.md frontmatter carries a `schema_version` stamp. An
 unstamped wiki counts as v1. This script knows how to migrate v1 -> v2 (and
 future versions get their own registry entries).
 
@@ -48,11 +48,11 @@ INDEX_WIKILINK_PATTERN = re.compile(r"^\s*-\s*\[\[([^\]|]+)(?:\|[^\]]*)?\]\]")
 # the Migrate mode following references/migrate-workflow.md.
 MANUAL_STEPS = {
     2: [
-        "Consolidate tags to the canonical list in CLAUDE.md (max 4/page, 2+ pages per tag, merge synonyms)",
+        "Consolidate tags to the canonical list in AGENTS.md (max 4/page, 2+ pages per tag, merge synonyms)",
         "Rewrite the index as theme-grouped v2 (one entry per page, `★` marks hubs)",
         "Elect hubs for 3+ page clusters and add `## Pages in this cluster` sections",
         "Add `## Related` footers (2-5 links + one-line why) to wiki pages",
-        "Update CLAUDE.md with the new conventions (tag policy, hub rule, index rule)",
+        "Update AGENTS.md with the new conventions (tag policy, hub rule, index rule)",
     ],
 }
 
@@ -66,11 +66,11 @@ def find_file(root: Path, name: str) -> Path | None:
 
 
 def read_schema_version(root: Path) -> int:
-    """schema_version from CLAUDE.md frontmatter; unstamped wiki = v1."""
-    claude_md = root / "CLAUDE.md"
-    if not claude_md.exists():
+    """schema_version from AGENTS.md frontmatter; unstamped wiki = v1."""
+    agent_md = root / "AGENTS.md"
+    if not agent_md.exists():
         return 1
-    text = claude_md.read_text(encoding="utf-8", errors="replace")
+    text = agent_md.read_text(encoding="utf-8", errors="replace")
     if not text.startswith("---\n"):
         return 1
     end = text.find("\n---", 4)
@@ -84,16 +84,16 @@ def read_schema_version(root: Path) -> int:
 
 
 def stamp_schema_version(root: Path, version: int, apply: bool) -> str:
-    """Set schema_version in CLAUDE.md frontmatter (insert frontmatter if absent)."""
-    claude_md = root / "CLAUDE.md"
-    if not claude_md.exists():
+    """Set schema_version in AGENTS.md frontmatter (insert frontmatter if absent)."""
+    agent_md = root / "AGENTS.md"
+    if not agent_md.exists():
         if apply:
-            claude_md.write_text(
+            agent_md.write_text(
                 f"---\nschema_version: {version}\n---\n", encoding="utf-8"
             )
-        return f"create CLAUDE.md with schema_version: {version}"
+        return f"create AGENTS.md with schema_version: {version}"
 
-    text = claude_md.read_text(encoding="utf-8", errors="replace")
+    text = agent_md.read_text(encoding="utf-8", errors="replace")
     if text.startswith("---\n"):
         end = text.find("\n---", 4)
         body = text[4:end]
@@ -109,8 +109,8 @@ def stamp_schema_version(root: Path, version: int, apply: bool) -> str:
         new_text = f"---\nschema_version: {version}\n---\n\n" + text
 
     if apply:
-        claude_md.write_text(new_text, encoding="utf-8")
-    return f"stamp CLAUDE.md frontmatter with schema_version: {version}"
+        agent_md.write_text(new_text, encoding="utf-8")
+    return f"stamp AGENTS.md frontmatter with schema_version: {version}"
 
 
 def dedupe_index(root: Path, apply: bool) -> str:
