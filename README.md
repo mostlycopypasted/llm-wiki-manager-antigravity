@@ -57,10 +57,10 @@ git clone https://github.com/mostlycopypasted/llm-wiki-manager-antigravity/ ~/.g
 
 **Option 2 — GitHub CLI** (requires gh CLI v2.90+)
 ```bash
-gh skill install sametbrr/llm-wiki-manager
+gh skill install mostlycopypasted/llm-wiki-manager-antigravity
 ```
 
-**Option 3 — .skill file**
+**Option 3 — .skill file** (to consider changing)
 ```bash
 curl -L -o llm-wiki-manager.skill \
   https://github.com/sametbrr/llm-wiki-manager/releases/latest/download/llm-wiki-manager.skill

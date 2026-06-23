@@ -117,7 +117,7 @@ Some users run two wikis: a per-project wiki at the working directory and a long
 ```markdown
 ## External Wiki
 
-Global knowledge base: ~/Documents/obsidian/
+Global knowledge base: ~/obsidian/
 ```
 
 When this section is present, **read both `AGENTS.md` files at session start** (project + global) so you know each wiki's schema. Route writes per the user's rules: project-specific knowledge to the project wiki, portable concepts to the global wiki. Always pass `--path` to scripts targeting the chosen wiki — never assume the current working directory is the right target. **Cross-wiki links must be absolute** (`~/...`), never relative across wiki boundaries. See `references/multi-wiki-routing.md` for the four canonical scenarios (write-to-global, pull-from-global, promote, dual-lint).
