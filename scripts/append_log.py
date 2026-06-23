@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-append_log.py — Append a log entry to wiki/log.md with the standard prefix.
+append_log.py — Append a log entry to log.md with the standard prefix.
 
-The prefix `## [YYYY-MM-DD] action | title` is enforced so the log is
+The prefix `## [YYYY-MM-DD HH:MM:SS] action | title` is enforced so the log is
 greppable: `grep "^## \\[" log.md | tail -20`.
 
 Usage:
@@ -16,7 +16,7 @@ Notes:
 - --action is constrained to a known set so the log stays consistent.
 - --details is optional; if provided it's written as a sub-paragraph after the heading.
 - The log file is created if it doesn't exist.
-- Date defaults to today (UTC); pass --date to override (useful for backfilling).
+- Date defaults to now (local); pass --date to override (useful for backfilling).
 """
 
 from __future__ import annotations
@@ -31,12 +31,12 @@ VALID_ACTIONS = {"ingest", "query", "lint", "bootstrap", "schema-evolve", "note"
 
 
 def find_log(root: Path) -> Path:
-    """Find log.md — checks wiki/log.md first (standard layout), then root/log.md (flat layout)."""
-    for candidate in [root / "wiki" / "log.md", root / "log.md"]:
+    """Find log.md — checks root/log.md first (flat layout), then wiki/log.md (standard layout)."""
+    for candidate in [root / "log.md", root / "wiki" / "log.md"]:
         if candidate.exists():
             return candidate
     raise FileNotFoundError(
-        f"No log.md found at {root / 'wiki' / 'log.md'} or {root / 'log.md'}. "
+        f"No log.md found at {root / 'log.md'} or {root / 'wiki' / 'log.md'}. "
         "Run init_wiki.py first to scaffold the wiki."
     )
 
@@ -77,7 +77,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--date", default=None,
-        help="Date in YYYY-MM-DD format. Defaults to today (local).",
+        help="Date in YYYY-MM-DD HH:MM:SS format. Defaults to now (local).",
     )
     args = parser.parse_args()
 
@@ -85,13 +85,17 @@ def main() -> int:
         print("error: --title must be a single line", file=sys.stderr)
         return 2
 
-    date = args.date or dt.date.today().isoformat()
+    date = args.date or dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # Validate date format
     try:
-        dt.datetime.strptime(date, "%Y-%m-%d")
+        dt.datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        print(f"error: --date must be YYYY-MM-DD, got {date!r}", file=sys.stderr)
-        return 2
+        try:
+            # Fallback to just date
+            dt.datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            print(f"error: --date must be YYYY-MM-DD HH:MM:SS or YYYY-MM-DD, got {date!r}", file=sys.stderr)
+            return 2
 
     root = Path(args.path).expanduser().resolve()
 
