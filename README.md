@@ -92,7 +92,7 @@ The skill auto-detects which mode applies from natural language. No slash comman
 
 ```bash
 # 1. Go to your research folder
-mkdir ~/research/my-topic && cd ~/research/my-topic && agents
+mkdir ~/research/my-topic && cd ~/research/my-topic && antigravity
 
 # 2. Bootstrap the wiki
 > "Set up an LLM wiki here. Topic: history of nutrition science."
